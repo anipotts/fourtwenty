@@ -13,63 +13,57 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+const UnderageMessage = () => (
+  <div className="fixed inset-0 flex items-center justify-center bg-background p-6">
+    <div className="w-full max-w-xs rounded-lg border border-border bg-card p-6 shadow-lg text-center">
+      <h1 className="text-xl font-bold mb-3">Sorry!</h1>
+      <p className="text-base">Please come back on your 21st birthday.</p>
+    </div>
+  </div>
+);
+
 export default function AgeGate() {
-  const [open, setOpen] = useState(true);
-  const [underage, setUnderage] = useState(false);
+  const [status, setStatus] = useState<"checking" | "underage" | "verified">(
+    "checking"
+  );
   const router = useRouter();
 
-  const handleYes = () => {
-    setOpen(false);
+  if (status === "underage") {
+    return <UnderageMessage />;
+  }
+
+  if (status === "verified") {
     router.push("/home");
-  };
-
-  const handleNo = () => {
-    setOpen(false);
-    setUnderage(true);
-  };
-
-  if (underage) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background p-4 sm:p-6">
-        <div className="max-w-md rounded-lg border border-border bg-card p-6 shadow-lg text-center">
-          <h1 className="mb-4 text-xl sm:text-2xl font-bold">Sorry!</h1>
-          <p className="mb-6 text-base sm:text-lg">
-            Please come back on your 21st birthday.
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="mx-4 sm:mx-0 sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl sm:text-2xl">
+    <Dialog open={true} onOpenChange={() => {}}>
+      <DialogContent className="sm:max-w-[380px] w-[90vw]">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="text-xl sm:text-2xl text-center">
             Age Verification
           </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base md:text-lg">
+          <DialogDescription className="text-base sm:text-lg text-center">
             You must be 21 years or older to enter this site.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-3">
           <p className="text-center text-base sm:text-lg font-medium">
             Are you 21 or older?
           </p>
         </div>
-        <DialogFooter className="mt-2">
-          <div className="flex w-full flex-col space-y-2 sm:flex-row sm:justify-center sm:space-x-4 sm:space-y-0">
-            <Button
-              variant="destructive"
-              onClick={handleNo}
-              className="w-full sm:w-auto"
-            >
-              No
-            </Button>
-            <Button onClick={handleYes} className="w-full sm:w-auto">
-              Yes
-            </Button>
-          </div>
+        <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-4">
+          <Button
+            variant="destructive"
+            onClick={() => setStatus("underage")}
+            className="w-full"
+          >
+            No
+          </Button>
+          <Button onClick={() => setStatus("verified")} className="w-full">
+            Yes
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
