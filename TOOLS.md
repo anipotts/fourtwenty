@@ -20,11 +20,15 @@
 - **@supabase/auth-helpers-nextjs**: Supabase auth utilities for Next.js applications.
 - **@supabase/supabase-js**: Supabase client library for JavaScript/TypeScript.
 
+## Maps & Location
+
+- **@react-google-maps/api**: React wrapper for Google Maps JavaScript API with built-in typings.
+- **Google Maps JavaScript API**: For map visualization and location services.
+
 ## APIs for Future Implementation
 
 - **OpenAI API**: For AI-powered features (to be implemented).
 - **Yelp Fusion API**: For location-based recommendations (to be implemented).
-- **Google Maps JavaScript API**: For map visualization and location services.
 
 ## Deployment
 

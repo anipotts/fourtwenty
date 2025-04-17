@@ -1,12 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Import Inter font (similar to OpenAI's Söhne font)
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+});
+
+// For code blocks if needed
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "700"],
+  variable: "--font-jetbrains-mono",
+});
 
 export const metadata: Metadata = {
-  title: "Four Twenty",
-  description: "Happy 420 App",
+  title: "Fourtwenty.nyc",
+  description: "NYC's premier cannabis community platform",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -32,7 +46,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-[#f8f9fa]`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
