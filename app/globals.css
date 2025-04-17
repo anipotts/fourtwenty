@@ -70,7 +70,31 @@
   * {
     @apply border-border;
   }
+
+  html,
+  body {
+    @apply antialiased overscroll-none;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* Mobile Safari specific fix */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      min-height: -webkit-fill-available;
+    }
+  }
+
   body {
     @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Fix for iOS input zoom */
+  input,
+  textarea,
+  select,
+  button {
+    @apply text-base;
   }
 }
