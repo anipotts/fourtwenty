@@ -22,8 +22,18 @@ A Next.js 14 application with TypeScript, Tailwind CSS, shadcn/ui, and Supabase 
    ```bash
    npm install
    ```
-3. Copy `.env.example` to `.env.local` and add your environment variables
-4. Run the development server:
+3. Set up environment variables:
+
+   ```bash
+   # If you're using Vercel and have linked your project
+   vercel env pull .env.local
+
+   # OR manually copy the example file and add your keys
+   cp .env.local.example .env.local
+   ```
+
+4. Add your API keys to `.env.local` file
+5. Run the development server:
    ```bash
    npm run dev
    ```
@@ -43,6 +53,7 @@ npm run deploy
   - `ui/`: shadcn/ui components
 - `lib/`: Utility functions and shared code
 - `supabase/`: Supabase schema and configuration
+- `api/`: Server-side API routes and edge functions
 
 ## Documentation
 

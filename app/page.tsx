@@ -3,7 +3,7 @@ import AgeGate from "@/components/AgeGate";
 
 export default function RootPage() {
   return (
-    <main className="min-h-screen w-full">
+    <main className="w-full min-h-screen">
       <AgeGate />
     </main>
   );

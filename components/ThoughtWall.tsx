@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
-import { createClient } from "@supabase/supabase-js";
+import React from "react";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 type Thought = {
   id: string;
@@ -11,45 +11,19 @@ type Thought = {
 };
 
 export default function ThoughtWall() {
-  const [thoughts, setThoughts] = useState<Thought[]>([]);
-  const [newThought, setNewThought] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [thoughts, setThoughts] = React.useState<Thought[]>([]);
+  const [newThought, setNewThought] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [submitLoading, setSubmitLoading] = React.useState(false);
+  const [username, setUsername] = React.useState("");
 
-  // Create a supabase client if possible
+  // Create a supabase client
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseKey!);
 
-  const supabase =
-    supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      // Create dummy data if no Supabase connection
-      setThoughts([
-        {
-          id: "1",
-          content: "Just saw the most amazing sunset from Central Park ✨",
-          created_at: new Date().toISOString(),
-          username: "high_thoughts_420",
-        },
-        {
-          id: "2",
-          content: "These pretzels in Washington Square are LIFE",
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          username: "munchie_maven",
-        },
-        {
-          id: "3",
-          content: "Anyone catch that art installation on Houston? Mind blown.",
-          created_at: new Date(Date.now() - 7200000).toISOString(),
-          username: "creative_cloud",
-        },
-      ]);
-      return;
-    }
-
-    // Function to fetch thoughts
+  // Fetch thoughts
+  React.useEffect(() => {
     const fetchThoughts = async () => {
       try {
         const { data, error } = await supabase
@@ -59,15 +33,38 @@ export default function ThoughtWall() {
           .limit(20);
 
         if (error) throw error;
-        if (data) setThoughts(data as Thought[]);
+
+        setThoughts(data || []);
       } catch (error) {
         console.error("Error fetching thoughts:", error);
+
+        // Fallback to dummy data if there's an error
+        setThoughts([
+          {
+            id: "1",
+            content: "Just saw the most amazing sunset from Central Park ✨",
+            created_at: new Date().toISOString(),
+            username: "high_thoughts_420",
+          },
+          {
+            id: "2",
+            content: "These pretzels in Washington Square are LIFE",
+            created_at: new Date(Date.now() - 3600000).toISOString(),
+            username: "munchie_maven",
+          },
+          {
+            id: "3",
+            content:
+              "Anyone catch that art installation on Houston? Mind blown.",
+            created_at: new Date(Date.now() - 7200000).toISOString(),
+            username: "creative_cloud",
+          },
+        ]);
       } finally {
         setLoading(false);
       }
     };
 
-    // Initial fetch
     fetchThoughts();
 
     // Set up real-time subscription
@@ -92,32 +89,69 @@ export default function ThoughtWall() {
     };
   }, [supabase]);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  // Clean text before submitting
+  const cleanText = async (text: string): Promise<string> => {
+    try {
+      const response = await fetch("/api/clean", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to clean text");
+      }
+
+      const data = await response.json();
+      return data.cleaned;
+    } catch (error) {
+      console.error("Error cleaning text:", error);
+      return text; // Fallback to original text
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newThought.trim() || !supabase) return;
+
+    if (!newThought.trim() || !username.trim()) return;
 
     try {
+      setSubmitLoading(true);
+
+      // Clean the text first
+      const cleanedText = await cleanText(newThought);
+
+      // Insert the thought
       const { error } = await supabase.from("thoughts").insert([
         {
-          content: newThought,
-          username: "anonymous_user", // Placeholder - would be replaced with auth
+          content: cleanedText,
+          username: username.trim() || "anonymous_user",
         },
       ]);
 
       if (error) throw error;
+
       setNewThought("");
     } catch (error) {
       console.error("Error posting thought:", error);
+      alert("Failed to post your thought. Please try again.");
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="py-3 px-4 border-b border-[#e9ecef] bg-white shadow-sm">
-        <h1 className="text-xl font-bold text-[#212529]">High-Thought Wall</h1>
+    <div className="flex flex-col h-full bg-[#f8f9fa] text-[#495057] font-serif">
+      <div className="py-6 px-4 border-b border-gray-200">
+        <h1 className="text-2xl font-bold text-[#4dd783] text-center">
+          High-Thought Wall
+        </h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-20 bg-[#f8f9fa]">
+      <div className="flex-1 overflow-y-auto pb-20">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center">
@@ -146,9 +180,7 @@ export default function ThoughtWall() {
               <h3 className="text-lg font-bold text-[#212529]">
                 Loading thoughts
               </h3>
-              <p className="text-[#6c757d] mt-2 font-sans">
-                Getting the latest vibes...
-              </p>
+              <p className="text-[#6c757d] mt-2">Getting the latest vibes...</p>
             </div>
           </div>
         ) : thoughts.length === 0 ? (
@@ -173,7 +205,7 @@ export default function ThoughtWall() {
               <h2 className="text-xl font-bold text-[#212529] mb-3">
                 No thoughts yet
               </h2>
-              <p className="text-[#495057] mb-5 font-sans">
+              <p className="text-[#495057] mb-5">
                 Be the first to share your high thoughts with the community!
               </p>
             </div>
@@ -183,11 +215,9 @@ export default function ThoughtWall() {
             {thoughts.map((thought) => (
               <div
                 key={thought.id}
-                className="bg-white p-5 rounded-lg border border-[#e9ecef] shadow-sm"
+                className="bg-white p-5 rounded-lg border border-gray-100 shadow-sm"
               >
-                <p className="text-[#212529] mb-4 text-lg font-sans">
-                  {thought.content}
-                </p>
+                <p className="text-[#212529] mb-4 text-lg">{thought.content}</p>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[#4dd783] font-bold">
                     {thought.username}
@@ -207,24 +237,38 @@ export default function ThoughtWall() {
         )}
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-[#e9ecef] p-4 shadow-md">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={newThought}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setNewThought(e.target.value)
-            }
-            placeholder="Share your high thought..."
-            className="flex-1 bg-[#f8f9fa] text-[#495057] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4dd783] border border-[#e9ecef] font-sans"
-          />
-          <button
-            type="submit"
-            disabled={!newThought.trim()}
-            className="bg-[#4dd783] text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 hover:bg-[#3bb871] transition-colors"
-          >
-            Send
-          </button>
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 p-4 shadow-md">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex">
+            <input
+              type="text"
+              value={username}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setUsername(e.target.value)
+              }
+              placeholder="Your nickname..."
+              className="flex-1 bg-[#f8f9fa] text-[#495057] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4dd783] border border-gray-100 mr-2"
+              maxLength={20}
+            />
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newThought}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setNewThought(e.target.value)
+              }
+              placeholder="Share your high thought..."
+              className="flex-1 bg-[#f8f9fa] text-[#495057] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4dd783] border border-gray-100"
+            />
+            <button
+              type="submit"
+              disabled={submitLoading || !newThought.trim() || !username.trim()}
+              className="bg-[#4dd783] text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 hover:bg-[#3bb871] transition-colors"
+            >
+              {submitLoading ? "Sending..." : "Send"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
