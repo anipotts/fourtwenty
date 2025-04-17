@@ -12,8 +12,8 @@ interface BottomNavProps {
 export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
-      <div className="bg-[#f8f9fa] border-t border-[#e9ecef] shadow-lg pb-safe">
-        <nav className="flex justify-around items-center h-16">
+      <div className="bg-[#f8f9fa] border-t border-gray-100 shadow-lg pb-safe">
+        <nav className="flex justify-around items-center h-16 font-serif">
           <button
             onClick={() => onChange("radar")}
             className={`flex flex-col items-center justify-center w-full h-full ${
@@ -21,12 +21,11 @@ export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
             }`}
           >
             <svg
-              xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5 mb-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={1.5}
             >
               <path
                 strokeLinecap="round"
@@ -49,12 +48,11 @@ export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
             }`}
           >
             <svg
-              xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5 mb-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={1.5}
             >
               <path
                 strokeLinecap="round"
@@ -72,12 +70,11 @@ export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
             }`}
           >
             <svg
-              xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5 mb-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={1.5}
             >
               <path
                 strokeLinecap="round"

@@ -24,13 +24,27 @@
 
 - **@react-google-maps/api**: React wrapper for Google Maps JavaScript API with built-in typings.
 - **Google Maps JavaScript API**: For map visualization and location services.
+- **@googlemaps/polyline-codec**: For encoding and decoding Google Maps polyline paths.
 
-## APIs for Future Implementation
+## API Integration & Caching
 
-- **OpenAI API**: For AI-powered features (to be implemented).
-- **Yelp Fusion API**: For location-based recommendations (to be implemented).
+- **OpenAI API**: For generating AI-powered stoner summaries of food venues.
+- **Yelp Fusion API**: For fetching nearby food venues based on user location.
+- **@vercel/edge-config**: For caching API responses at the edge.
+- **bad-words**: For filtering profanity in user-generated content.
+- **NYC Open Data API**: For fetching public events data.
+- **Ticketmaster API**: For fetching concert and event information.
+
+## Development & Tooling
+
+- **Prettier**: Code formatter for consistent code style.
+- **ESLint**: Static code analysis tool for identifying problematic patterns.
+- **ESLint Next.js config**: ESLint configuration specific to Next.js projects.
+- **Husky**: Git hooks for pre-commit code quality checks.
+- **Jest & React Testing Library**: For unit and component testing.
 
 ## Deployment
 
 - **Vercel**: Platform for deploying Next.js applications with edge functions support.
 - **Edge Functions**: Server-side functions executed at the edge for improved performance.
+- **Vercel Cron Jobs**: For scheduling periodic tasks like event data synchronization.
