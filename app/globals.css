@@ -2,67 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
+/* OpenAI-like font styling */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --font-inter: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-jetbrains-mono: "JetBrains Mono", monospace;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --foreground-rgb: 33, 37, 41;
+    --background-rgb: 248, 249, 250;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 77, 215, 131;
+    --primary-hover: 59, 184, 113;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 233, 236, 239;
+    --input: 248, 249, 250;
+    --ring: 77, 215, 131;
 
     --radius: 0.5rem;
   }
 
+  body {
+    color: rgb(var(--foreground-rgb));
+    background: rgb(var(--background-rgb));
+    font-feature-settings: "ss01", "ss02", "cv01", "cv03";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+
+  input,
+  textarea,
+  button {
+    font-family: var(--font-inter);
+  }
+}
+
+/* OpenAI-like component styling */
+@layer components {
+  .input-openai {
+    @apply bg-[#f8f9fa] text-[#495057] px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4dd783] border border-[#e9ecef] font-sans;
+  }
+
+  .button-openai-primary {
+    @apply bg-[#4dd783] text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 hover:bg-[#3bb871] transition-colors;
+  }
+
+  .button-openai-secondary {
+    @apply border border-[#e9ecef] text-[#495057] px-6 py-3 rounded-lg font-bold disabled:opacity-50 hover:bg-[#f8f9fa] hover:text-[#212529] transition-colors;
+  }
+
+  .card-openai {
+    @apply bg-white rounded-lg p-5 border border-[#e9ecef] shadow-sm;
+  }
+}
+
+/* Existing CSS */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 142.1 76.2% 36.3%;
+    --radius: 0.5rem;
+  }
+
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --background: 20 14.3% 4.1%;
+    --foreground: 0 0% 95%;
+    --card: 24 9.8% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 142.1 70.6% 45.3%;
+    --primary-foreground: 144.9 80.4% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 12 6.5% 15.1%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 142.4 71.8% 29.2%;
   }
 }
 
@@ -70,31 +121,7 @@
   * {
     @apply border-border;
   }
-
-  html,
-  body {
-    @apply antialiased overscroll-none;
-    height: 100%;
-    width: 100%;
-  }
-
-  /* Mobile Safari specific fix */
-  @supports (-webkit-touch-callout: none) {
-    body {
-      min-height: -webkit-fill-available;
-    }
-  }
-
   body {
     @apply bg-background text-foreground;
-    text-rendering: optimizeLegibility;
-  }
-
-  /* Fix for iOS input zoom */
-  input,
-  textarea,
-  select,
-  button {
-    @apply text-base;
   }
 }

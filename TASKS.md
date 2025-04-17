@@ -25,23 +25,49 @@
 ## Core Features
 
 - [x] Create Age Gate (RU21) modal
-- [x] Create responsive Home page
+- [x] Create responsive Home page with tabbed layout
+- [x] Add placeholder components for main features
 - [ ] Implement user preferences
 - [ ] Add location-based features
+
+## Munchies Radar
+
+- [ ] Integrate Google Maps API with proper key
+- [ ] Add geolocation to center map on user
+- [ ] Integrate Yelp API for munchies locations
+- [ ] Add filters for different food categories
+- [ ] Implement search functionality
+
+## High-Thought Wall
+
+- [ ] Connect to Supabase real-time functionality
+- [ ] Create thought submission validation
+- [ ] Add user avatars and usernames
+- [ ] Implement likes/reactions
+- [ ] Add moderation system for inappropriate content
+
+## Event Compass
+
+- [ ] Create events database in Supabase
+- [ ] Build event submission form
+- [ ] Add event filtering and search
+- [ ] Implement event reminders
+- [ ] Add map integration to show event locations
 
 ## UI Components
 
 - [x] Setup Tailwind CSS
 - [x] Implement shadcn/ui components
-- [ ] Create responsive layout
+- [x] Create responsive layout with bottom navigation
 - [ ] Add dark/light mode toggle
 
 ## Database
 
 - [ ] Initialize Supabase schema
 - [ ] Create user profiles table
+- [ ] Create thoughts table with RLS policies
+- [ ] Create events table with proper indexes
 - [ ] Setup Row Level Security (RLS)
-- [ ] Create database indexes for optimization
 
 ## Testing & Optimization
 
