@@ -7,7 +7,20 @@ declare module "react" {
   ): [T, (newState: T | ((prevState: T) => T)) => void];
   export function forwardRef<T, P>(
     Component: (props: P, ref: React.Ref<T>) => React.ReactElement | null
-  ): (props: P & { ref?: React.Ref<T> }) => React.ReactElement | null;
+  ): {
+    (props: P & { ref?: React.Ref<T> }): React.ReactElement | null;
+    displayName?: string;
+  };
+
+  export interface FunctionComponent<P = {}> {
+    (props: P, context?: any): React.ReactElement<any, any> | null;
+    displayName?: string;
+  }
+
+  export interface ForwardRefExoticComponent<P> {
+    (props: P): React.ReactElement | null;
+    displayName?: string;
+  }
 
   export interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
     className?: string;
