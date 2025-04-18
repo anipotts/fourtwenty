@@ -1,72 +1,63 @@
-# Four Twenty
+# 420 Social App
 
-A Next.js 14 application with TypeScript, Tailwind CSS, shadcn/ui, and Supabase integration.
+A social application that helps users discover nearby food options and connect with friends.
 
 ## Features
 
-- Age verification gate (RU21)
-- Responsive UI with Tailwind CSS
-- Supabase authentication and database
-- Ready for deployment on Vercel
-- AI-powered ChatGPT-style chat interface with image analysis
-- Floating chat assistant across the entire application
+- **Eats Map**: Discover restaurants and food options in your area
+- **Chat**: Connect with friends through real-time messaging
+- **Cloud**: Create and join social events with other users
+- **Profile**: Manage your user profile and preferences
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Supabase (Auth & Postgres), Vercel Edge Functions
-- **APIs**: OpenAI GPT-4V for image analysis, GPT-3.5 for chat, Yelp Fusion, and Google Maps
-- **Image Storage**: ImgBB API integration for image uploads
+- **Frontend**: Next.js, React, Tailwind CSS
+- **Maps Integration**: Google Maps API
+- **Restaurant Data**: Yelp API
+- **AI Features**: OpenAI API
+- **Database & Auth**: Supabase
+- **Image Hosting**: ImgBB
 
-## Getting Started
+## Recent Updates
 
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up environment variables:
+- **Codebase Optimization**:
 
-   ```bash
-   # If you're using Vercel and have linked your project
-   vercel env pull .env.local
+  - Removed duplicate components to reduce redundancy
+  - Improved naming consistency across the application
+  - Eliminated unused components to streamline the codebase
 
-   # OR manually copy the example file and add your keys
-   cp .env.local.example .env.local
-   ```
+- **Security Enhancements**:
+  - Implemented secure environment variable handling
+  - Added scripts for purging sensitive data from git history
+  - Created documentation for security best practices
+  - Updated example environment files to use placeholders instead of real keys
 
-4. Add your API keys to `.env.local` file (Google Maps, Yelp, OpenAI, ImgBB, Supabase)
-5. Run the development server:
-   ```bash
-   npm run dev
-   ```
+## Development
+
+### Getting Started
+
+1. Clone the repository
+2. Copy `.env.example` to `.env.local` and add your API keys
+3. Install dependencies:
+
+```
+npm install
+```
+
+4. Run the development server:
+
+```
+npm run dev
+```
+
+### Environment Variables
+
+See the `.env.example` file for required environment variables. For security guidance, refer to the `SECURITY.md` file.
 
 ## Deployment
 
-This project is configured for easy deployment to Vercel:
+This project is configured for deployment on Vercel. Make sure to add all required environment variables in your Vercel project settings before deploying.
 
-```bash
-npm run deploy
-```
+## Security
 
-## Project Structure
-
-- `app/`: Next.js app directory (App Router)
-- `components/`: Reusable React components
-  - `ui/`: shadcn/ui components
-  - `ChatInterface.tsx`: ChatGPT-style interface with image upload
-  - `ChatButton.tsx`: Floating chat button component
-- `lib/`: Utility functions and shared code
-- `supabase/`: Supabase schema and configuration
-- `api/`: Server-side API routes and edge functions
-  - `api/chat/`: OpenAI streaming chat API with GPT-4V support
-  - `api/upload/`: Image upload API using ImgBB
-
-## Documentation
-
-- See [TOOLS.md](./TOOLS.md) for a list of all tools and packages used in this project
-- See [TASKS.md](./TASKS.md) for a checklist of MVP tasks
-
-## License
-
-MIT
+Please read the `SECURITY.md` file for important security guidelines, especially regarding the handling of API keys and sensitive information.
