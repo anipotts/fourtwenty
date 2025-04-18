@@ -146,15 +146,15 @@ export default function EventList() {
 
   return (
     <div className="flex flex-col h-full bg-[#f8f9fa] text-[#495057] font-serif">
-      <div className="py-6 px-4 border-b border-gray-200">
+      <div className="px-4 py-6 border-b border-gray-200">
         <h1 className="text-2xl text-center font-bold text-[#4dd783]">
-          Event Compass
+          Events Near You
         </h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="overflow-y-auto flex-1 p-4">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex justify-center items-center h-full">
             <div className="flex flex-col items-center">
               <div className="rounded-full bg-[#e9ecef] h-16 w-16 mb-5 flex items-center justify-center">
                 <svg
@@ -187,7 +187,7 @@ export default function EventList() {
             </div>
           </div>
         ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+          <div className="flex flex-col justify-center items-center p-4 h-full text-center">
             <svg
               className="w-16 h-16 mb-4 text-[#4dd783]"
               fill="none"
@@ -202,7 +202,7 @@ export default function EventList() {
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
               ></path>
             </svg>
-            <h3 className="text-xl font-bold mb-2">No Events Found</h3>
+            <h3 className="mb-2 text-xl font-bold">No Events Found</h3>
             <p className="text-sm">
               There are no upcoming events at this time. Please check back
               later.
@@ -219,12 +219,12 @@ export default function EventList() {
                 {dateEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm"
+                    className="p-4 bg-white rounded-lg border border-gray-100 shadow-sm"
                   >
-                    <h3 className="text-lg font-bold mb-1">{event.title}</h3>
+                    <h3 className="mb-1 text-lg font-bold">{event.title}</h3>
                     <div className="flex items-center mb-2 text-sm">
                       <svg
-                        className="w-4 h-4 mr-1"
+                        className="mr-1 w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -241,7 +241,7 @@ export default function EventList() {
                     </div>
                     <div className="flex items-center mb-2 text-sm">
                       <svg
-                        className="w-4 h-4 mr-1"
+                        className="mr-1 w-4 h-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"

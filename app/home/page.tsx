@@ -1,16 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
 import RadarMap from "@/components/RadarMap";
 import ThoughtWall from "@/components/ThoughtWall";
 import EventList from "@/components/EventList";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ChatInterface from "@/components/ChatInterface";
+import ChatButton from "@/components/ChatButton";
 
-type Tab = "radar" | "wall" | "events";
+type Tab = "radar" | "cloud" | "events";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Tab>("radar");
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Handle tab change and close chat
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    setIsChatOpen(false);
+  };
+
+  // Determine if chat should be shown for the current tab
+  const shouldShowChat =
+    activeTab === "radar" || activeTab === "events" || activeTab === "cloud";
+
+  // Determine chat title based on active tab
+  const getChatTitle = () => {
+    if (activeTab === "radar") return "420 Eats Assistant";
+    if (activeTab === "events") return "420 Events Assistant";
+    return "420 Assistant";
+  };
 
   return (
     <ErrorBoundary>
@@ -22,7 +42,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {activeTab === "wall" && (
+          {activeTab === "cloud" && (
             <div className="h-full">
               <ThoughtWall />
             </div>
@@ -35,7 +55,19 @@ export default function HomePage() {
           )}
         </main>
 
-        <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+        {/* Chat button for opening the chat */}
+        {shouldShowChat && (
+          <ChatButton isOpen={isChatOpen} onClick={() => setIsChatOpen(true)} />
+        )}
+
+        {/* Chat interface */}
+        <ChatInterface
+          isOpen={isChatOpen && shouldShowChat}
+          onClose={() => setIsChatOpen(false)}
+          title={getChatTitle()}
+        />
+
+        <BottomNav activeTab={activeTab} onChange={handleTabChange} />
       </div>
     </ErrorBoundary>
   );
