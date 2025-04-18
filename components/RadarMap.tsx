@@ -201,11 +201,11 @@ export default function RadarMap() {
   if (loadError || !apiKey) {
     return (
       <div className="flex items-center justify-center h-full w-full bg-[#f8f9fa] font-serif">
-        <div className="text-center p-8 max-w-md bg-white rounded-xl border border-gray-100 shadow-md">
+        <div className="p-8 max-w-md text-center bg-white rounded-xl border border-gray-100 shadow-md">
           <div className="mb-6 text-[#4dd783]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-16 w-16 mx-auto"
+              className="mx-auto w-16 h-16"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -245,7 +245,7 @@ export default function RadarMap() {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-full w-full bg-[#f8f9fa] font-serif">
-        <div className="text-center p-6">
+        <div className="p-6 text-center">
           <div className="flex flex-col items-center">
             <div className="rounded-full bg-[#e9ecef] h-16 w-16 mb-5 flex items-center justify-center">
               <svg
@@ -270,9 +270,7 @@ export default function RadarMap() {
               </svg>
             </div>
             <h3 className="text-lg font-bold text-[#495057]">Loading Map</h3>
-            <p className="text-[#6c757d] mt-2">
-              Finding munchies near you...
-            </p>
+            <p className="text-[#6c757d] mt-2">Finding munchies near you...</p>
           </div>
         </div>
       </div>
@@ -281,11 +279,11 @@ export default function RadarMap() {
 
   // Render map with venues
   return (
-    <div className="h-full flex flex-col font-serif">
-      <div className="py-6 px-4 border-b border-gray-200 bg-white shadow-sm">
-        <h1 className="text-2xl font-bold text-[#4dd783] text-center">Munchies Radar</h1>
+    <div className="flex flex-col h-full font-serif">
+      <div className="px-4 py-6 bg-white border-b border-gray-200 shadow-sm">
+        <h1 className="text-2xl font-bold text-[#4dd783] text-center">Eats</h1>
       </div>
-      <div className="flex-1 relative">
+      <div className="relative flex-1">
         <GoogleMap
           mapContainerStyle={containerStyle}
           center={mapCenter}
@@ -340,14 +338,12 @@ export default function RadarMap() {
               onCloseClick={() => setSelectedVenue(null)}
             >
               <div className="max-w-xs font-serif text-[#495057]">
-                <h3 className="text-lg font-bold mb-1">
-                  {selectedVenue.name}
-                </h3>
+                <h3 className="mb-1 text-lg font-bold">{selectedVenue.name}</h3>
                 <div className="text-sm text-[#6c757d] mb-2">
                   {selectedVenue.categories.join(", ")} ·{" "}
                   {selectedVenue.price || "N/A"}
                 </div>
-                <div className="flex items-center text-sm mb-3">
+                <div className="flex items-center mb-3 text-sm">
                   <span className="text-[#4dd783] mr-1">
                     {formatRating(selectedVenue.rating)}
                   </span>
@@ -361,7 +357,7 @@ export default function RadarMap() {
                     "{venuesSummaries[selectedVenue.id]}"
                   </p>
                 ) : summaryLoading ? (
-                  <div className="flex items-center justify-center py-2">
+                  <div className="flex justify-center items-center py-2">
                     <div className="w-5 h-5 border-t-2 border-[#4dd783] rounded-full animate-spin"></div>
                     <span className="ml-2 text-sm text-[#6c757d]">
                       Generating stoner take...
@@ -389,7 +385,7 @@ export default function RadarMap() {
         {/* Loading overlay for venues */}
         {venuesLoading && (
           <div className="absolute top-0 left-0 right-0 bg-[#212529] bg-opacity-70 text-white py-2 text-center text-sm">
-            <div className="inline-block w-4 h-4 border-t-2 border-white rounded-full animate-spin mr-2"></div>
+            <div className="inline-block mr-2 w-4 h-4 rounded-full border-t-2 border-white animate-spin"></div>
             Searching for munchies nearby...
           </div>
         )}

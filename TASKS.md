@@ -16,6 +16,7 @@
 - [x] Setup Yelp Fusion API for munchies locations
 - [x] Implement edge caching with Vercel Edge Config
 - [x] Create API routes for external services
+- [x] Setup ImgBB API for image uploads
 
 ## Authentication
 
@@ -31,6 +32,9 @@
 - [x] Add placeholder components for main features
 - [x] Implement error boundaries and error handling
 - [x] Add location-based features
+- [x] Add ChatGPT-style chat interface for AI assistance
+- [x] Implement image uploads in chat interface
+- [x] Add support for image analysis with GPT-4V
 
 ## Munchies Radar
 
@@ -40,6 +44,7 @@
 - [x] Add custom map styling to match the theme
 - [x] Implement info windows with venue details
 - [x] Add AI-generated stoner summaries for venues
+- [x] Add floating chat interface for restaurant recommendations
 - [ ] Add filters for different food categories
 - [ ] Implement search functionality
 
@@ -60,6 +65,7 @@
 - [x] Add Ticketmaster API integration
 - [x] Implement distance calculation from user
 - [x] Group events by date
+- [x] Add floating chat interface for event recommendations
 - [ ] Add event filtering and search
 - [ ] Implement event reminders
 - [ ] Add map integration to show event locations
@@ -71,6 +77,9 @@
 - [x] Create responsive layout with bottom navigation
 - [x] Create loading, empty, and error states
 - [x] Implement accessibility features
+- [x] Create full-screen ChatGPT-style chat UI
+- [x] Build centered floating chat button
+- [x] Implement drag and drop for image uploads
 - [ ] Add dark/light mode toggle
 
 ## Database
