@@ -98,7 +98,7 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="absolute bottom-4 text-center animate-fade-in" style={{ animationDelay: '0.3s', opacity: 0 }}>
+      <footer className="absolute bottom-10 sm:bottom-8 text-center animate-fade-in" style={{ animationDelay: '0.3s', opacity: 0 }}>
         <a
           href="https://instagram.com/anipotts"
           target="_blank"
