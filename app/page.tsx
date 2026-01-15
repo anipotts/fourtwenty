@@ -98,7 +98,7 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="absolute bottom-10 sm:bottom-8 text-center animate-fade-in animate-delay-300">
+      <header className="absolute top-10 sm:top-8 text-center animate-fade-in animate-delay-300">
         <a
           href="https://instagram.com/anipotts"
           target="_blank"
@@ -107,7 +107,7 @@ export default function Home() {
         >
           ani potts
         </a>
-      </footer>
+      </header>
     </main>
   );
 }
