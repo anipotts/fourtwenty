@@ -70,15 +70,15 @@ body::-webkit-scrollbar {
 
 .animate-delay-100 {
   animation-delay: 0.1s;
-  animation-fill-mode: backwards;
+  animation-fill-mode: both;
 }
 
 .animate-delay-200 {
   animation-delay: 0.2s;
-  animation-fill-mode: backwards;
+  animation-fill-mode: both;
 }
 
 .animate-delay-300 {
   animation-delay: 0.3s;
-  animation-fill-mode: backwards;
+  animation-fill-mode: both;
 }
