@@ -100,10 +100,10 @@ export default function Home() {
 
       <header className="absolute top-10 sm:top-8 text-center animate-fade-in animate-delay-300">
         <a
-          href="https://instagram.com/anipotts"
+          href="https://instagram.com/anipottsbuilds"
           target="_blank"
           rel="noopener noreferrer"
-          className={`text-sm transition-colors duration-150 ${dark ? 'text-emerald-400/50 hover:text-emerald-300' : 'text-leaf-dark/50 hover:text-leaf'}`}
+          className={`text-sm font-[family-name:var(--font-jetbrains-mono)] transition-colors duration-150 ${dark ? 'text-emerald-400/50 hover:text-emerald-300' : 'text-leaf-dark/50 hover:text-leaf'}`}
         >
           ani potts
         </a>
