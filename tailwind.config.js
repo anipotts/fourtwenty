@@ -3,6 +3,9 @@ module.exports = {
   content: ["./app/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
+      },
       colors: {
         leaf: "#228B22",
         "leaf-dark": "#1a6b1a",
