@@ -120,7 +120,7 @@ export default function Home() {
           href="https://instagram.com/anipottsbuilds"
           target="_blank"
           rel="noopener noreferrer"
-          className={`text-sm transition-colors duration-150 ${dark ? "text-emerald-400/50 hover:text-emerald-300" : "text-leaf-dark/50 hover:text-leaf"}`}
+          className={`text-sm font-mono transition-colors duration-150 ${dark ? "text-emerald-400/50 hover:text-emerald-300" : "text-leaf-dark/50 hover:text-leaf"}`}
         >
           ani potts
         </a>
