@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
 
 interface JointImageProps {
   length: number;
@@ -20,6 +20,23 @@ export default function JointImage({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const loadedRef = useRef(false);
+
+  // Generate a stable random burn edge pattern (slight canoe + bumps)
+  const burnEdge = useMemo(() => {
+    const points: number[] = [];
+    const segments = 20;
+    // Canoe bias: one side burns slightly faster
+    const canoeBias = (Math.random() - 0.5) * 0.4;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments; // 0 = left edge, 1 = right edge
+      // Base shape: slight V or canoe curve
+      const canoe = canoeBias * Math.sin(t * Math.PI) * 8;
+      // Random bumps
+      const bump = (Math.random() - 0.5) * 5;
+      points.push(canoe + bump);
+    }
+    return points;
+  }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -42,80 +59,130 @@ export default function JointImage({
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // Joint geometry in the image:
-    // - Filter/crutch is bottom ~13%
-    // - Twisted tip is top ~5%
-    // - The joint center is roughly at 50% of width
-    // - Joint width: ~6% of displayWidth at filter, ~4% at tip
-    const filterRatio = 0.13;
-    const tipRatio = 0.05;
-    const burnableHeight = displayHeight * (1 - filterRatio - tipRatio);
-    const visiblePaperHeight = burnableHeight * Math.max(length, 0.02);
-    const burnY = displayHeight * tipRatio + (burnableHeight - visiblePaperHeight);
+    const cx = displayWidth / 2;
 
-    // Draw joint image clipped to show burn progress
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, burnY, displayWidth, displayHeight - burnY);
-    ctx.clip();
+    // Image anatomy (measured from the actual joint.webp):
+    // Top ~6% = twisted tip
+    // Middle ~78% = paper/herb body
+    // Bottom ~16% = RAW filter/crutch
+    const tipEnd = displayHeight * 0.06;
+    const filterStart = displayHeight * 0.84;
+    const burnableRange = filterStart - tipEnd;
+
+    // Burn position: where the burn line sits
+    // length=1 means tip is intact (burn at tipEnd), length=0 means burned to filter
+    const burnY = tipEnd + burnableRange * (1 - Math.max(length, 0.01));
+
+    // Joint width at any Y (conical: wider at top in image coords because tip is up)
+    // Actually in this image the wide end is at the TOP (tip) and narrow at filter
+    // At tipEnd: ~9% of width, at filterStart: ~5.5% of width
+    const jointHalfWAt = (y: number) => {
+      const t = (y - tipEnd) / burnableRange;
+      return displayWidth * (0.045 - t * 0.02); // wider at top, narrower at bottom
+    };
+
+    // ===== Draw full image, then erase the burned portion =====
     ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
-    ctx.restore();
 
-    // ===== CHERRY at burn line =====
-    if (length > 0.02 && length < 0.95) {
-      const cx = displayWidth * 0.5;
-      const cherryY = burnY;
+    // Erase everything above the burn line with an irregular edge
+    if (length < 0.95) {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
 
-      // Joint width at burn point — the joint is conical
-      // At filter (bottom): ~6% of width, at tip (top): ~3.5%
-      const t = 1 - length; // 0 at full, 1 at roach
-      const jointHalfW = displayWidth * (0.03 + t * 0.01);
+      const hw = jointHalfWAt(burnY);
+      const edgeWidth = hw * 2 + 10;
+      const leftX = cx - hw - 5;
 
-      // Subtle outer glow
+      ctx.beginPath();
+      // Start above the image
+      ctx.moveTo(0, 0);
+      ctx.lineTo(displayWidth, 0);
+      ctx.lineTo(displayWidth, burnY + 5);
+
+      // Irregular burn edge across the joint width
+      for (let i = burnEdge.length - 1; i >= 0; i--) {
+        const t = i / (burnEdge.length - 1);
+        const x = leftX + edgeWidth * (1 - t);
+        const y = burnY + burnEdge[i];
+        if (i === burnEdge.length - 1) {
+          ctx.lineTo(x, y);
+        } else {
+          // Smooth the edge with quadratic curves
+          const nextI = i + 1;
+          const nextT = nextI / (burnEdge.length - 1);
+          const nextX = leftX + edgeWidth * (1 - nextT);
+          const nextY = burnY + burnEdge[nextI];
+          const cpX = (x + nextX) / 2;
+          const cpY = (y + nextY) / 2;
+          ctx.quadraticCurveTo(nextX, nextY, cpX, cpY);
+        }
+      }
+
+      ctx.lineTo(0, burnY + 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ===== CHERRY / EMBER at burn line =====
+    if (length > 0.01 && length < 0.95) {
+      const hw = jointHalfWAt(burnY);
+
+      // Outer glow (only when flaring)
       if (flare) {
-        const glowR = jointHalfW * 4;
-        const glow = ctx.createRadialGradient(cx, cherryY, 0, cx, cherryY, glowR);
-        glow.addColorStop(0, "rgba(255,100,20,0.25)");
-        glow.addColorStop(0.5, "rgba(255,60,0,0.08)");
+        const glowR = hw * 5;
+        const glow = ctx.createRadialGradient(cx, burnY, hw * 0.5, cx, burnY, glowR);
+        glow.addColorStop(0, "rgba(255,100,20,0.3)");
+        glow.addColorStop(0.4, "rgba(255,60,0,0.1)");
         glow.addColorStop(1, "rgba(255,40,0,0)");
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.ellipse(cx, cherryY, glowR, glowR * 0.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, burnY, glowR, glowR * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Ash ring — thin gray edge
-      ctx.fillStyle = "#555";
-      ctx.globalAlpha = 0.4;
+      // Ash edge — irregular, following the burn edge pattern
+      ctx.save();
       ctx.beginPath();
-      ctx.ellipse(cx, cherryY, jointHalfW + 1, 3, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // Ember core
-      const emberGrad = ctx.createRadialGradient(
-        cx, cherryY, 0,
-        cx, cherryY, jointHalfW
-      );
-      if (flare) {
-        emberGrad.addColorStop(0, "#ffcc44");
-        emberGrad.addColorStop(0.3, "#ff6600");
-        emberGrad.addColorStop(0.7, "#cc3300");
-        emberGrad.addColorStop(1, "#662200");
-      } else {
-        emberGrad.addColorStop(0, "#aa4400");
-        emberGrad.addColorStop(0.4, "#773300");
-        emberGrad.addColorStop(0.8, "#443322");
-        emberGrad.addColorStop(1, "#332222");
+      const edgeWidth = hw * 2 + 4;
+      const leftX = cx - hw - 2;
+      for (let i = 0; i < burnEdge.length; i++) {
+        const t = i / (burnEdge.length - 1);
+        const x = leftX + edgeWidth * t;
+        const y = burnY + burnEdge[i] - 1;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      ctx.fillStyle = emberGrad;
-      ctx.beginPath();
-      ctx.ellipse(cx, cherryY, jointHalfW, 2.5, 0, 0, Math.PI * 2);
+      for (let i = burnEdge.length - 1; i >= 0; i--) {
+        const t = i / (burnEdge.length - 1);
+        const x = leftX + edgeWidth * t;
+        const y = burnY + burnEdge[i] + 3;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      // Ash + ember gradient
+      const ashGrad = ctx.createLinearGradient(cx - hw, 0, cx + hw, 0);
+      if (flare) {
+        ashGrad.addColorStop(0, "#884422");
+        ashGrad.addColorStop(0.3, "#cc5500");
+        ashGrad.addColorStop(0.5, "#ff7722");
+        ashGrad.addColorStop(0.7, "#cc5500");
+        ashGrad.addColorStop(1, "#884422");
+      } else {
+        ashGrad.addColorStop(0, "#555048");
+        ashGrad.addColorStop(0.3, "#6a5e4e");
+        ashGrad.addColorStop(0.5, "#7a6a55");
+        ashGrad.addColorStop(0.7, "#6a5e4e");
+        ashGrad.addColorStop(1, "#555048");
+      }
+      ctx.fillStyle = ashGrad;
       ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore();
-  }, [length, flare, displayHeight]);
+  }, [length, flare, displayHeight, burnEdge]);
 
   useEffect(() => {
     const img = new Image();
