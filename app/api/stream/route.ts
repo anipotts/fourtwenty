@@ -30,7 +30,7 @@ export async function GET() {
         } catch {
           // continue on transient errors
         }
-      }, 2000);
+      }, 750);
 
       (controller as unknown as Record<string, () => Promise<void>>)._cleanup = async () => {
         clearInterval(interval);
