@@ -26,6 +26,8 @@ export default function CannabisLeaf({
       onClick={!animated ? onClick : undefined}
       xmlns="http://www.w3.org/2000/svg"
     >
+      {/* Outline stroke — slightly darker than fill */}
+      <path d={LEAF_PATH} fill="none" stroke="currentColor" strokeWidth="3" opacity="0.3" />
       <path d={LEAF_PATH} />
       <path d={STEM_PATH} />
     </svg>
