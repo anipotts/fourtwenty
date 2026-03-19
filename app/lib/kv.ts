@@ -1,4 +1,6 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
+
+const redis = Redis.fromEnv();
 
 const KEYS = {
   hits: "fourtwenty:joint:hits",
@@ -16,9 +18,9 @@ export interface JointState {
 
 export async function getJointState(): Promise<JointState> {
   const [hits, length, lastHit] = await Promise.all([
-    kv.get<number>(KEYS.hits),
-    kv.get<number>(KEYS.length),
-    kv.get<number>(KEYS.lastHit),
+    redis.get<number>(KEYS.hits),
+    redis.get<number>(KEYS.length),
+    redis.get<number>(KEYS.lastHit),
   ]);
 
   const visitors = await getVisitorCount();
@@ -32,21 +34,20 @@ export async function getJointState(): Promise<JointState> {
 }
 
 export async function hitJoint(): Promise<JointState> {
-  const currentLength = (await kv.get<number>(KEYS.length)) ?? 1;
+  const currentLength = (await redis.get<number>(KEYS.length)) ?? 1;
   const newLength = currentLength - 0.05;
 
   if (newLength <= 0) {
-    // Relight
     await Promise.all([
-      kv.incr(KEYS.hits),
-      kv.set(KEYS.length, 1),
-      kv.set(KEYS.lastHit, Date.now()),
+      redis.incr(KEYS.hits),
+      redis.set(KEYS.length, 1),
+      redis.set(KEYS.lastHit, Date.now()),
     ]);
   } else {
     await Promise.all([
-      kv.incr(KEYS.hits),
-      kv.set(KEYS.length, Math.round(newLength * 100) / 100),
-      kv.set(KEYS.lastHit, Date.now()),
+      redis.incr(KEYS.hits),
+      redis.set(KEYS.length, Math.round(newLength * 100) / 100),
+      redis.set(KEYS.lastHit, Date.now()),
     ]);
   }
 
@@ -54,21 +55,19 @@ export async function hitJoint(): Promise<JointState> {
 }
 
 export async function registerVisitor(id: string): Promise<void> {
-  // Score = current timestamp; entries expire via cleanup
-  await kv.zadd(KEYS.visitors, { score: Date.now(), member: id });
+  await redis.zadd(KEYS.visitors, { score: Date.now(), member: id });
 }
 
 export async function removeVisitor(id: string): Promise<void> {
-  await kv.zrem(KEYS.visitors, id);
+  await redis.zrem(KEYS.visitors, id);
 }
 
 async function getVisitorCount(): Promise<number> {
-  // Clean up entries older than 30 seconds
   const cutoff = Date.now() - 30_000;
-  await kv.zremrangebyscore(KEYS.visitors, 0, cutoff);
-  return (await kv.zcard(KEYS.visitors)) ?? 0;
+  await redis.zremrangebyscore(KEYS.visitors, 0, cutoff);
+  return (await redis.zcard(KEYS.visitors)) ?? 0;
 }
 
 export async function heartbeatVisitor(id: string): Promise<void> {
-  await kv.zadd(KEYS.visitors, { score: Date.now(), member: id });
+  await redis.zadd(KEYS.visitors, { score: Date.now(), member: id });
 }

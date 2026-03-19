@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-black">
+      <body className="bg-cream">
         {children}
         <Script src="https://anipotts.com/brand/header.js" strategy="lazyOnload" />
       </body>
