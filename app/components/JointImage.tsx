@@ -9,6 +9,14 @@ interface JointImageProps {
   onClick?: () => void;
 }
 
+/** Compute burn line position as a percentage from top */
+export function getBurnPct(length: number): number {
+  const tipPct = 6;
+  const filterPct = 16;
+  const burnablePct = 100 - tipPct - filterPct;
+  return tipPct + burnablePct * (1 - Math.max(length, 0.01));
+}
+
 export default function JointImage({
   length,
   flare = false,
@@ -84,10 +92,11 @@ export default function JointImage({
       {/* Cherry/ember glow at the burn line */}
       {length > 0.01 && length < 0.95 && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+          className="absolute left-1/2 pointer-events-none"
           style={{
             top: `${burnedPct}%`,
-            transform: `translateX(-50%) translateY(-50%)`,
+            transform: "translateX(-50%) translateY(-50%)",
+            transition: "top 0.3s ease-out",
           }}
         >
           {/* Ember dot */}
