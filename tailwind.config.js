@@ -4,10 +4,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        leaf: "#228B22",
-        "leaf-dark": "#1a6b1a",
-        "leaf-light": "#90EE90",
-        cream: "#FFFEF5",
+        leaf: "#2d6a4f",
+        "leaf-dark": "#1b4332",
+        "leaf-light": "#74c69d",
+        "leaf-accent": "#52b788",
+        cream: "#faf8f0",
+        "cream-dark": "#f0ece0",
+        sage: "#b7e4c7",
       },
     },
   },
