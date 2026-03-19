@@ -14,7 +14,6 @@ export default function SharedJoint() {
   const prevLastHit = useRef(state.lastHit);
   const prevLength = useRef(state.length);
 
-  // Detect someone else's hit (cherry flare)
   useEffect(() => {
     if (state.lastHit > prevLastHit.current) {
       setFlare(true);
@@ -23,7 +22,6 @@ export default function SharedJoint() {
     prevLastHit.current = state.lastHit;
   }, [state.lastHit]);
 
-  // Detect relight (length jumps back to 1)
   useEffect(() => {
     if (state.length > prevLength.current + 0.5) {
       playLighter();
@@ -39,24 +37,34 @@ export default function SharedJoint() {
     setTimeout(() => setBurst(false), 150);
   }, [serverHit]);
 
+  // Smoke position tracks the burn line
+  const burnPct = 6 + (100 - 6 - 16) * (1 - Math.max(state.length, 0.01));
+
   return (
     <div className="flex flex-col items-center relative">
-      {/* Smoke — NO overflow hidden, particles drift freely */}
-      <div className="absolute -top-10 left-1/2 -translate-x-1/2" style={{ width: 200, height: 80 }}>
+      {/* Smoke — positioned at the burn point */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
+        style={{
+          top: `calc(${burnPct}% - 60px)`,
+          width: 160,
+          height: 60,
+        }}
+      >
         <SmokeCanvas
-          width={200}
-          height={80}
-          emitX={100}
-          emitY={70}
+          width={160}
+          height={60}
+          emitX={80}
+          emitY={52}
           burst={burst}
         />
       </div>
 
-      {/* Real joint photo with Canvas cherry overlay */}
+      {/* Joint */}
       <JointImage
         length={state.length}
         flare={flare}
-        displayHeight={350}
+        className="h-[350px] sm:h-[400px]"
         onClick={hit}
       />
 
