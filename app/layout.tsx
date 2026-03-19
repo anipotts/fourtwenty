@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +21,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-cream">{children}</body>
+      <body className="bg-cream">
+        {children}
+        <Script src="https://anipotts.com/brand/header.js" strategy="lazyOnload" />
+      </body>
     </html>
   );
 }
