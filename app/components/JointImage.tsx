@@ -6,7 +6,6 @@ interface JointImageProps {
   length: number;
   flare?: boolean;
   height?: number;
-  /** Reports the current animated burn Y% for syncing smoke */
   onBurnY?: (pct: number) => void;
   onClick?: () => void;
 }
@@ -31,20 +30,23 @@ export default function JointImage({
   onClick,
 }: JointImageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const animRef = useRef({ current: 1, target: 1 });
+  const animRef = useRef({ current: length, target: length });
   const flareRef = useRef(flare);
+  const onBurnYRef = useRef(onBurnY);
   const rafRef = useRef<number>(0);
   const [width, setWidth] = useState(0);
 
   flareRef.current = flare;
+  onBurnYRef.current = onBurnY;
 
-  const render = () => {
+  function render(): boolean {
     const canvas = canvasRef.current;
     const img = imgRef.current;
-    const ctx = ctxRef.current;
-    if (!canvas || !img || !ctx || !width) return false;
+    if (!canvas || !img || !width) return false;
+
+    let ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return false;
 
     const dpr = window.devicePixelRatio || 1;
     const anim = animRef.current;
@@ -66,10 +68,9 @@ export default function JointImage({
 
     const burnPct = getBurnPct(anim.current);
     const burnY = (burnPct / 100) * height;
-    onBurnY?.(burnPct);
+    onBurnYRef.current?.(burnPct);
 
     const { ash, ember, heat, fade } = ZONES;
-
     const startRow = Math.max(0, Math.floor((burnY - fade - 2) * dpr));
     const endRow = Math.min(ch, Math.ceil((burnY + ash + ember + heat + 2) * dpr));
 
@@ -132,28 +133,29 @@ export default function JointImage({
 
     ctx.restore();
     return Math.abs(anim.target - anim.current) > SETTLED;
-  };
+  }
 
-  // Animation loop
+  // Start animation loop whenever length changes
   useEffect(() => {
-    if (animRef.current.target === length) return;
     animRef.current.target = length;
     cancelAnimationFrame(rafRef.current);
     const loop = () => {
-      if (render()) rafRef.current = requestAnimationFrame(loop);
+      const needsMore = render();
+      if (needsMore) {
+        rafRef.current = requestAnimationFrame(loop);
+      }
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
   }, [length, width, height]);
 
-  // Re-render on flare (single frame, no loop)
-  useEffect(() => { render(); }, [flare]);
-
-  // Init canvas context + load image once
+  // Re-render single frame on flare
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) ctxRef.current = canvas.getContext("2d", { willReadFrequently: true });
+    requestAnimationFrame(() => render());
+  }, [flare]);
 
+  // Load image once
+  useEffect(() => {
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
