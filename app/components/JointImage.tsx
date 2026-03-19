@@ -9,12 +9,14 @@ interface JointImageProps {
   onClick?: () => void;
 }
 
-/** Compute burn line position as a percentage from top */
+/** Compute burn line position as a percentage from top. Never burns into filter. */
 export function getBurnPct(length: number): number {
   const tipPct = 6;
   const filterPct = 16;
   const burnablePct = 100 - tipPct - filterPct;
-  return tipPct + burnablePct * (1 - Math.max(length, 0.01));
+  // Clamp: never burn past the filter line (length 0.20 = filter start)
+  const clamped = Math.max(length, 0.20);
+  return tipPct + burnablePct * (1 - clamped);
 }
 
 export default function JointImage({

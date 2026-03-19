@@ -60,7 +60,7 @@ export function useServerStream() {
       return {
         ...prev,
         hits: prev.hits + 1,
-        length: newLength <= 0 ? 1 : newLength,
+        length: newLength <= 0.20 ? 1 : newLength,
         lastHit: Date.now(),
       };
     });

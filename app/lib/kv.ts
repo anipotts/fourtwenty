@@ -33,11 +33,15 @@ export async function getJointState(): Promise<JointState> {
   };
 }
 
+// Filter starts at ~20% of joint length — stop burning there and relight
+const FILTER_LINE = 0.20;
+
 export async function hitJoint(): Promise<JointState> {
   const currentLength = (await redis.get<number>(KEYS.length)) ?? 1;
   const newLength = currentLength - 0.05;
 
-  if (newLength <= 0) {
+  if (newLength <= FILTER_LINE) {
+    // Hit the filter — relight a fresh joint
     await Promise.all([
       redis.incr(KEYS.hits),
       redis.set(KEYS.length, 1),
