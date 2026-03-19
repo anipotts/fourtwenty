@@ -31,44 +31,36 @@ export default function SharedJoint() {
   }, [serverHit, playHitSound]);
 
   return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center">
-      <div className="relative" style={{ width: 220, height: 80 }}>
+    <div className="flex flex-col items-center">
+      {/* Smoke — positioned above the joint cherry */}
+      <div className="relative" style={{ width: 160, height: 60 }}>
         <SmokeCanvas
-          width={220}
-          height={80}
-          emitX={110 + state.length * 55}
-          emitY={65}
+          width={160}
+          height={60}
+          emitX={80}
+          emitY={50}
           burst={burst}
           className="absolute inset-0"
         />
       </div>
 
+      {/* The joint — vertical, centered, big */}
       <button
         onClick={hit}
-        className="group cursor-pointer -mt-2 relative"
+        className="cursor-pointer -mt-4 hover:scale-105 active:scale-95 transition-transform duration-150"
         aria-label="Hit the joint"
       >
         <JointSVG
           length={state.length}
           flare={flare}
-          className="w-44 sm:w-52 transition-transform duration-150 group-hover:scale-105 group-active:scale-95"
+          className="h-64 sm:h-80"
         />
       </button>
 
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-leaf-accent/60 text-xs tabular-nums">
-          {state.hits.toLocaleString()} hits
-        </span>
-        {state.hits > 0 ? (
-          <span className="text-orange-400/30 text-[10px]">
-            &bull; tap to hit
-          </span>
-        ) : (
-          <span className="text-leaf-accent/30 text-[10px] animate-pulse">
-            tap to hit
-          </span>
-        )}
-      </div>
+      {/* Hit counter — subtle, below */}
+      <span className="mt-4 text-leaf/40 text-xs tabular-nums">
+        {state.hits.toLocaleString()} hits
+      </span>
     </div>
   );
 }
