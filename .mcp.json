@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fal-ai": {
+      "command": "uvx",
+      "args": ["--from", "fal-mcp-server", "fal-mcp"],
+      "env": {
+        "FAL_KEY": "${FAL_KEY}"
+      }
+    }
+  }
+}
