@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import JointImage, { getBurnPct } from "./JointImage";
+import JointImage from "./JointImage";
 import SmokeCanvas from "./SmokeCanvas";
 import { useServerStream } from "../hooks/useServerStream";
 import { useLighterSound } from "../hooks/useLighterSound";
@@ -11,26 +11,31 @@ export default function SharedJoint() {
   const { play: playLighter } = useLighterSound(0.18);
   const [flare, setFlare] = useState(false);
   const [burst, setBurst] = useState(false);
+  const [burnPct, setBurnPct] = useState(6);
   const prevLength = useRef(state.length);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Lighter sound on relight
   useEffect(() => {
     if (state.length > prevLength.current + 0.5) playLighter();
     prevLength.current = state.length;
   }, [state.length, playLighter]);
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => timers.current.forEach(clearTimeout);
+  }, []);
+
   const hit = useCallback(() => {
     serverHit();
     setFlare(true);
     setBurst(true);
-    setTimeout(() => setFlare(false), 400);
-    setTimeout(() => setBurst(false), 150);
+    timers.current.push(setTimeout(() => setFlare(false), 400));
+    timers.current.push(setTimeout(() => setBurst(false), 150));
   }, [serverHit]);
-
-  const burnPct = getBurnPct(state.length);
 
   return (
     <div className="flex flex-col items-center relative">
+      {/* Smoke — synced to animated burn position via onBurnY */}
       <div
         className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
         style={{ top: `calc(${burnPct}% - 50px)`, width: 160, height: 60 }}
@@ -42,6 +47,7 @@ export default function SharedJoint() {
         length={state.length}
         flare={flare}
         height={400}
+        onBurnY={setBurnPct}
         onClick={hit}
       />
 
