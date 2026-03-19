@@ -83,11 +83,9 @@ body::-webkit-scrollbar {
 @keyframes leafPulse {
   0%, 100% {
     transform: scale(1);
-    filter: drop-shadow(0 0 0px currentColor);
   }
   50% {
-    transform: scale(1.04);
-    filter: drop-shadow(0 0 12px currentColor);
+    transform: scale(1.03);
   }
 }
 
