@@ -1,48 +1,56 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 
 interface JointImageProps {
   length: number;
   flare?: boolean;
   height?: number;
+  /** Reports the current animated burn Y% for syncing smoke */
+  onBurnY?: (pct: number) => void;
   onClick?: () => void;
 }
+
+const SETTLED = 0.001;
+const EASE = 0.12;
+const ZONES = { ash: 4, ember: 3, heat: 18, fade: 6 } as const;
 
 export function getBurnPct(length: number): number {
   return 6 + 78 * (1 - Math.max(length, 0.20));
 }
 
-// Deterministic hash noise — stable across re-renders, no flicker
 function hashNoise(x: number, y: number): number {
-  const h = ((x * 2654435761) ^ (y * 2246822519)) & 0xFFFF;
-  return (h / 0xFFFF - 0.5) * 20;
+  return (((x * 2654435761 ^ y * 2246822519) & 0xFFFF) / 0xFFFF - 0.5) * 20;
 }
 
 export default function JointImage({
   length,
   flare = false,
   height = 400,
+  onBurnY,
   onClick,
 }: JointImageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const animRef = useRef({ current: 1, target: 1 });
+  const flareRef = useRef(flare);
   const rafRef = useRef<number>(0);
   const [width, setWidth] = useState(0);
 
-  const render = useCallback(() => {
+  flareRef.current = flare;
+
+  const render = () => {
     const canvas = canvasRef.current;
     const img = imgRef.current;
-    if (!canvas || !img || !width) return;
-
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
+    const ctx = ctxRef.current;
+    if (!canvas || !img || !ctx || !width) return false;
 
     const dpr = window.devicePixelRatio || 1;
     const anim = animRef.current;
     const diff = anim.target - anim.current;
-    anim.current += Math.abs(diff) > 0.001 ? diff * 0.12 : diff;
+    anim.current += Math.abs(diff) > SETTLED ? diff * EASE : diff;
+    const isFlare = flareRef.current;
 
     const cw = width * dpr;
     const ch = height * dpr;
@@ -56,19 +64,17 @@ export default function JointImage({
     ctx.scale(dpr, dpr);
     ctx.drawImage(img, 0, 0, width, height);
 
-    const burnY = (getBurnPct(anim.current) / 100) * height;
-    const ASH = 4, EMBER = 3, HEAT = 18, FADE = 6;
+    const burnPct = getBurnPct(anim.current);
+    const burnY = (burnPct / 100) * height;
+    onBurnY?.(burnPct);
 
-    // Only process affected rows
-    const startRow = Math.max(0, Math.floor((burnY - FADE - 2) * dpr));
-    const endRow = Math.min(ch, Math.ceil((burnY + ASH + EMBER + HEAT + 2) * dpr));
+    const { ash, ember, heat, fade } = ZONES;
 
-    // Clear everything above burn zone
-    if (startRow > 0) {
-      ctx.clearRect(0, 0, cw / dpr, startRow / dpr);
-    }
+    const startRow = Math.max(0, Math.floor((burnY - fade - 2) * dpr));
+    const endRow = Math.min(ch, Math.ceil((burnY + ash + ember + heat + 2) * dpr));
 
-    // Process burn zone pixels
+    if (startRow > 0) ctx.clearRect(0, 0, width, startRow / dpr);
+
     if (endRow > startRow) {
       const regionH = endRow - startRow;
       const imageData = ctx.getImageData(0, startRow, cw, regionH);
@@ -82,26 +88,26 @@ export default function JointImage({
           const i = (row * cw + col) * 4;
           if (px[i + 3] < 10) continue;
 
-          if (d < -FADE) {
+          if (d < -fade) {
             px[i + 3] = 0;
           } else if (d < 0) {
-            const t = 1 - (-d / FADE);
+            const t = 1 - (-d / fade);
             px[i]   = (px[i] * 0.4 + 140 * 0.6) | 0;
             px[i+1] = (px[i+1] * 0.4 + 130 * 0.6) | 0;
             px[i+2] = (px[i+2] * 0.4 + 120 * 0.6) | 0;
             px[i+3] = (px[i+3] * t * t) | 0;
-          } else if (d < ASH) {
+          } else if (d < ash) {
             const grey = (130 + hashNoise(col, startRow + row)) | 0;
             px[i] = grey; px[i+1] = grey - 5; px[i+2] = grey - 10;
-            px[i+3] = (200 + (d / ASH) * 55) | 0;
-          } else if (d < ASH + EMBER) {
-            const t = (d - ASH) / EMBER;
+            px[i+3] = (200 + (d / ash) * 55) | 0;
+          } else if (d < ash + ember) {
+            const t = (d - ash) / ember;
             const mix = 1 - t * 0.6;
-            px[i]   = (px[i] * (1-mix) + (flare ? 255 : 200) * mix) | 0;
-            px[i+1] = (px[i+1] * (1-mix) + (flare ? 120+t*40 : 70+t*40) * mix) | 0;
-            px[i+2] = (px[i+2] * (1-mix) + (flare ? 30 : 20) * mix) | 0;
-          } else if (d < ASH + EMBER + HEAT) {
-            const t = (d - ASH - EMBER) / HEAT;
+            px[i]   = (px[i] * (1-mix) + (isFlare ? 255 : 200) * mix) | 0;
+            px[i+1] = (px[i+1] * (1-mix) + (isFlare ? 120+t*40 : 70+t*40) * mix) | 0;
+            px[i+2] = (px[i+2] * (1-mix) + (isFlare ? 30 : 20) * mix) | 0;
+          } else if (d < ash + ember + heat) {
+            const t = (d - ash - ember) / heat;
             const darken = 1 - (1 - t) * 0.35;
             const brown = (1 - t) * 0.2;
             px[i]   = Math.min(255, (px[i] * darken + 60 * brown) | 0);
@@ -113,41 +119,41 @@ export default function JointImage({
       ctx.putImageData(imageData, 0, startRow);
     }
 
-    // Ember glow
     if (anim.current < 0.95 && anim.current > 0.20) {
-      const r = flare ? 20 : 8;
-      const glow = ctx.createRadialGradient(width/2, burnY+ASH+1, 0, width/2, burnY+ASH+1, r);
-      glow.addColorStop(0, flare ? "rgba(255,100,20,0.35)" : "rgba(255,80,0,0.1)");
+      const r = isFlare ? 20 : 8;
+      const glow = ctx.createRadialGradient(width/2, burnY+ash+1, 0, width/2, burnY+ash+1, r);
+      glow.addColorStop(0, isFlare ? "rgba(255,100,20,0.35)" : "rgba(255,80,0,0.1)");
       glow.addColorStop(1, "rgba(255,40,0,0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.ellipse(width/2, burnY+ASH+1, r, r*0.5, 0, 0, Math.PI*2);
+      ctx.ellipse(width/2, burnY+ash+1, r, r*0.5, 0, 0, Math.PI*2);
       ctx.fill();
     }
 
     ctx.restore();
-    return Math.abs(anim.target - anim.current) > 0.001;
-  }, [flare, width, height]);
+    return Math.abs(anim.target - anim.current) > SETTLED;
+  };
 
-  // Animation loop — single RAF chain, no double scheduling
+  // Animation loop
   useEffect(() => {
     if (animRef.current.target === length) return;
     animRef.current.target = length;
-
-    const loop = () => {
-      const needsMore = render();
-      if (needsMore) rafRef.current = requestAnimationFrame(loop);
-    };
     cancelAnimationFrame(rafRef.current);
+    const loop = () => {
+      if (render()) rafRef.current = requestAnimationFrame(loop);
+    };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [length, render]);
+  }, [length, width, height]);
 
-  // Re-render when flare changes (no animation needed)
-  useEffect(() => { render(); }, [flare, render]);
+  // Re-render on flare (single frame, no loop)
+  useEffect(() => { render(); }, [flare]);
 
-  // Load image once
+  // Init canvas context + load image once
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) ctxRef.current = canvas.getContext("2d", { willReadFrequently: true });
+
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
