@@ -11,21 +11,11 @@ export default function SharedJoint() {
   const { play: playLighter } = useLighterSound(0.18);
   const [flare, setFlare] = useState(false);
   const [burst, setBurst] = useState(false);
-  const prevLastHit = useRef(state.lastHit);
   const prevLength = useRef(state.length);
 
+  // Lighter sound on relight
   useEffect(() => {
-    if (state.lastHit > prevLastHit.current) {
-      setFlare(true);
-      setTimeout(() => setFlare(false), 400);
-    }
-    prevLastHit.current = state.lastHit;
-  }, [state.lastHit]);
-
-  useEffect(() => {
-    if (state.length > prevLength.current + 0.5) {
-      playLighter();
-    }
+    if (state.length > prevLength.current + 0.5) playLighter();
     prevLength.current = state.length;
   }, [state.length, playLighter]);
 
@@ -37,39 +27,24 @@ export default function SharedJoint() {
     setTimeout(() => setBurst(false), 150);
   }, [serverHit]);
 
-  // Same burn calculation used by JointImage for clip-path
   const burnPct = getBurnPct(state.length);
 
   return (
     <div className="flex flex-col items-center relative">
-      {/* Smoke — synced to burn line with matching transition */}
       <div
         className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
-        style={{
-          top: `calc(${burnPct}% - 55px)`,
-          width: 160,
-          height: 60,
-          transition: "top 0.3s ease-out",
-        }}
+        style={{ top: `calc(${burnPct}% - 50px)`, width: 160, height: 60 }}
       >
-        <SmokeCanvas
-          width={160}
-          height={60}
-          emitX={80}
-          emitY={52}
-          burst={burst}
-        />
+        <SmokeCanvas width={160} height={60} emitX={80} emitY={50} burst={burst} />
       </div>
 
-      {/* Joint */}
       <JointImage
         length={state.length}
         flare={flare}
-        className="h-[350px] sm:h-[400px]"
+        height={400}
         onClick={hit}
       />
 
-      {/* Hit counter */}
       <span className="mt-3 text-leaf/30 text-xs tabular-nums">
         {state.hits.toLocaleString()} hits
       </span>
