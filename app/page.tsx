@@ -11,7 +11,7 @@ function useFavicon(dark: boolean) {
   useEffect(() => {
     const bgColor = dark ? "#000000" : "#FFFEF5";
     const leafColor = dark ? "#34d399" : "#228B22";
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="${bgColor}"/><g transform="translate(64, 64) scale(0.75)"><path fill="${leafColor}" d="${LEAF_PATH}"/></g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 640"><rect width="600" height="640" fill="${bgColor}"/><path fill="${leafColor}" d="${LEAF_PATH}"/></svg>`;
     let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
     if (!link) {
       link = document.createElement("link");
