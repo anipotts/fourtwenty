@@ -29,7 +29,7 @@ export default function RollingPaper({ onComplete, dark = false }: RollingPaperP
   }, [progress, handleComplete]);
 
   const textColor = dark ? "text-emerald-400" : "text-leaf-dark";
-  const textMuted = dark ? "text-emerald-500/40" : "text-leaf/40";
+  const textMuted = dark ? "text-emerald-500/30" : "text-leaf/30";
 
   return (
     <div
@@ -37,49 +37,44 @@ export default function RollingPaper({ onComplete, dark = false }: RollingPaperP
         lit ? "opacity-0 pointer-events-none" : "opacity-100"
       } ${dark ? "bg-black" : "bg-cream"}`}
     >
+      {/* Horizontal scroll container — hidden scrollbar */}
       <div
         ref={scrollRef}
-        className="h-full w-full overflow-y-auto overflow-x-hidden scrollbar-none"
+        className="h-full w-full flex flex-row overflow-x-auto overflow-y-hidden scrollbar-none"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {/* Section 1: Matches the gate screen layout */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-6">
-          <CannabisLeaf
-            className={`w-16 h-16 mb-8 animate-float ${
-              dark ? "text-emerald-400" : "text-leaf"
-            }`}
-          />
-          <p className={`text-lg font-medium text-center ${textColor}`}>
-            Scroll to roll
-          </p>
-          <span className={`text-xs mt-2 ${textMuted}`}>↓</span>
+        <section className="flex-shrink-0 w-screen h-full flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <CannabisLeaf
+              className={`w-12 h-12 animate-float ${dark ? "text-emerald-400" : "text-leaf"}`}
+            />
+            <span className={`text-sm ${textMuted}`}>→</span>
+          </div>
         </section>
 
-        {/* Section 2 */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-6">
-          <p className={`text-4xl font-bold text-center ${textColor}`}>
-            4/20
-          </p>
-          <p className={`text-lg mt-2 ${textMuted}`}>
-            NYC &middot; 2026
-          </p>
+        <section className="flex-shrink-0 w-screen h-full flex items-center justify-center">
+          <p className={`text-3xl font-bold ${textColor}`}>4/20</p>
         </section>
 
-        {/* Section 3 */}
-        <section className="min-h-screen flex flex-col items-center justify-center px-6">
-          <p className={`text-xs tracking-[0.2em] uppercase ${textMuted}`}>
+        <section className="flex-shrink-0 w-screen h-full flex items-center justify-center">
+          <p className={`text-lg ${textMuted}`}>NYC &middot; 2026</p>
+        </section>
+
+        <section className="flex-shrink-0 w-screen h-full flex items-center justify-center">
+          <p className={`text-[10px] tracking-[0.2em] uppercase ${textMuted}`}>
             By scrolling, you confirm you&apos;re 21+
           </p>
         </section>
 
-        {/* Extra scroll space */}
-        <div className="h-[50vh]" />
+        {/* Extra scroll space to hit 100% */}
+        <div className="flex-shrink-0 w-[50vw] h-full" />
       </div>
 
-      {/* Progress bar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
-        <div className={`h-0.5 w-24 rounded-full overflow-hidden ${dark ? "bg-emerald-900/30" : "bg-leaf/20"}`}>
+      {/* Progress */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+        <div className={`h-px w-16 rounded-full overflow-hidden ${dark ? "bg-emerald-900/20" : "bg-leaf/15"}`}>
           <div
-            className={`h-full rounded-full transition-all duration-150 ${dark ? "bg-emerald-500/70" : "bg-leaf/60"}`}
+            className={`h-full rounded-full transition-all duration-100 ${dark ? "bg-emerald-500/50" : "bg-leaf/40"}`}
             style={{ width: `${Math.min(progress * 100, 100)}%` }}
           />
         </div>

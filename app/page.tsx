@@ -45,10 +45,8 @@ export default function Home() {
 
   const enterExperience = useCallback(() => {
     if (isMobile) {
-      // Mobile: rolling paper transition
       setPhase("rolling");
     } else {
-      // Desktop: simple fade to experience
       setFading(true);
       setTimeout(() => setPhase("experience"), 600);
     }
@@ -56,7 +54,6 @@ export default function Home() {
 
   return (
     <>
-      {/* Phase 1: Age gate — identical to current prod */}
       {phase === "gate" && (
         <main
           className={`h-screen w-screen flex flex-col items-center justify-center px-6 relative transition-all duration-500 ${
@@ -71,7 +68,6 @@ export default function Home() {
               }`}
               onClick={() => setDark(!dark)}
             />
-
             <div className="flex flex-col items-center">
               <h1
                 className={`text-2xl sm:text-3xl font-bold mb-8 text-center animate-fade-in animate-delay-100 ${
@@ -92,7 +88,6 @@ export default function Home() {
                   Yes
                 </button>
                 <button
-                  onClick={() => {/* no-op or redirect */}}
                   className={`px-8 py-3 border-2 font-bold rounded-full text-lg hover:scale-105 active:scale-95 transition-all duration-150 ${
                     dark
                       ? "text-emerald-400 border-emerald-400 hover:bg-emerald-400 hover:text-black"
@@ -104,52 +99,44 @@ export default function Home() {
               </div>
             </div>
           </div>
-
           {/* @ts-expect-error web component */}
           <ani-potts-header variant={dark ? "dark" : "light"} />
         </main>
       )}
 
-      {/* Phase 2: Rolling paper — mobile only */}
       {phase === "rolling" && (
-        <RollingPaper
-          onComplete={() => setPhase("experience")}
-          dark={dark}
-        />
+        <RollingPaper onComplete={() => setPhase("experience")} dark={dark} />
       )}
 
-      {/* Phase 3: The experience */}
       {phase === "experience" && (
         <main
-          className={`min-h-screen w-screen flex flex-col items-center justify-center px-6 relative transition-colors duration-500 ${
+          className={`h-screen w-screen flex items-center justify-center px-6 relative overflow-hidden ${
             dark ? "bg-black" : "bg-cream"
           }`}
         >
           <CollectiveBreath />
 
-          <div className="flex flex-col flex-1 justify-center items-center z-10 animate-fade-in">
+          <div className="flex flex-col items-center z-10 animate-fade-in">
             <CannabisLeaf
-              className={`w-16 h-16 sm:w-20 sm:h-20 mb-6 animate-float cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-150 ${
+              animated
+              className={`w-14 h-14 sm:w-16 sm:h-16 mb-6 ${
                 dark ? "text-emerald-400" : "text-leaf"
               }`}
               onClick={() => setDark(!dark)}
             />
 
             <p
-              className={`text-xl sm:text-2xl font-medium leading-relaxed text-center animate-fade-in animate-delay-100 ${
-                dark ? "text-emerald-400" : "text-leaf-dark"
+              className={`text-lg sm:text-xl font-medium leading-relaxed text-center ${
+                dark ? "text-emerald-400/80" : "text-leaf-dark/80"
               }`}
             >
-              Keep an eye out for
-              <br />
               <span
-                className={`text-3xl sm:text-4xl font-bold ${
+                className={`text-2xl sm:text-3xl font-bold block ${
                   dark ? "text-emerald-300" : "text-leaf"
                 }`}
               >
                 4/20 in NYC.
               </span>
-              <br />
               2026.
             </p>
 
@@ -158,8 +145,10 @@ export default function Home() {
 
           <SharedJoint />
 
-          {/* @ts-expect-error web component */}
-          <ani-potts-header variant={dark ? "dark" : "light"} />
+          <div className="absolute bottom-0 left-0 right-0">
+            {/* @ts-expect-error web component */}
+            <ani-potts-header variant={dark ? "dark" : "light"} />
+          </div>
         </main>
       )}
     </>
