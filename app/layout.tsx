@@ -4,7 +4,19 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "fourtwenty.nyc",
-  description: "NYC 4/20 2026",
+  description: "4/20 in NYC. 2026. Something's coming.",
+  openGraph: {
+    title: "fourtwenty.nyc",
+    description: "4/20 in NYC. 2026. Something's coming.",
+    url: "https://fourtwenty.nyc",
+    siteName: "fourtwenty.nyc",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "fourtwenty.nyc",
+    description: "4/20 in NYC. 2026. Something's coming.",
+  },
 };
 
 export const viewport: Viewport = {
@@ -21,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-cream">
+      <body className="bg-black">
         {children}
         <Script src="https://anipotts.com/brand/header.js" strategy="lazyOnload" />
       </body>
