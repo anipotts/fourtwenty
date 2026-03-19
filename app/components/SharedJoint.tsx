@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import JointSVG from "./JointSVG";
+import JointCanvas from "./JointCanvas";
 import SmokeCanvas from "./SmokeCanvas";
 import { useServerStream } from "../hooks/useServerStream";
 import { useHitSound } from "../hooks/useHitSound";
@@ -32,33 +32,31 @@ export default function SharedJoint() {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Smoke — positioned above the joint cherry */}
-      <div className="relative" style={{ width: 160, height: 60 }}>
+      {/* Smoke particles above the joint */}
+      <div className="relative" style={{ width: 160, height: 50 }}>
         <SmokeCanvas
           width={160}
-          height={60}
+          height={50}
           emitX={80}
-          emitY={50}
+          emitY={42}
           burst={burst}
           className="absolute inset-0"
         />
       </div>
 
-      {/* The joint — vertical, centered, big */}
-      <button
-        onClick={hit}
-        className="cursor-pointer -mt-4 hover:scale-105 active:scale-95 transition-transform duration-150"
-        aria-label="Hit the joint"
-      >
-        <JointSVG
+      {/* The joint — Canvas 2D, pixel-level rendering */}
+      <div className="-mt-2">
+        <JointCanvas
           length={state.length}
           flare={flare}
-          className="h-64 sm:h-80"
+          width={100}
+          height={320}
+          onClick={hit}
         />
-      </button>
+      </div>
 
-      {/* Hit counter — subtle, below */}
-      <span className="mt-4 text-leaf/40 text-xs tabular-nums">
+      {/* Hit counter */}
+      <span className="mt-2 text-leaf/30 text-xs tabular-nums">
         {state.hits.toLocaleString()} hits
       </span>
     </div>
