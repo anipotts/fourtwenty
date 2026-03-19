@@ -35,7 +35,7 @@ export default function JointImage({
   const flareRef = useRef(flare);
   const onBurnYRef = useRef(onBurnY);
   const rafRef = useRef<number>(0);
-  const width = Math.round(height * 0.22); // slim proportions
+  const width = Math.round(height * 0.32); // RAW cone proportions
 
   flareRef.current = flare;
   onBurnYRef.current = onBurnY;
@@ -77,9 +77,9 @@ export default function JointImage({
     const burnPct = getBurnPct(anim.current);
     onBurnYRef.current?.(burnPct);
 
-    // Conical widths — narrow at filter, wider at tip
-    const filterHW = width * 0.17;
-    const tipHW = width * 0.24;
+    // Conical widths — narrow at filter, fat at tip (real cone shape)
+    const filterHW = width * 0.16;
+    const tipHW = width * 0.30;
     const hwAt = (y: number) => {
       const t = Math.max(0, Math.min(1, (filterTop - y) / paperH));
       return filterHW + t * (tipHW - filterHW);
@@ -87,11 +87,11 @@ export default function JointImage({
 
     // ===== FILTER / CRUTCH =====
     const fGrad = ctx.createLinearGradient(cx - filterHW, 0, cx + filterHW, 0);
-    fGrad.addColorStop(0, "#ddd2b8");
-    fGrad.addColorStop(0.15, "#e8dcca");
-    fGrad.addColorStop(0.5, "#f0e8d8");
-    fGrad.addColorStop(0.85, "#e8dcca");
-    fGrad.addColorStop(1, "#d8ccb4");
+    fGrad.addColorStop(0, "#c4a870");
+    fGrad.addColorStop(0.15, "#d4b880");
+    fGrad.addColorStop(0.5, "#dcc490");
+    fGrad.addColorStop(0.85, "#d4b880");
+    fGrad.addColorStop(1, "#c0a468");
 
     ctx.beginPath();
     ctx.moveTo(cx - filterHW, filterTop);
@@ -101,12 +101,12 @@ export default function JointImage({
     ctx.closePath();
     ctx.fillStyle = fGrad;
     ctx.fill();
-    ctx.strokeStyle = "rgba(180,168,148,0.4)";
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(160,130,80,0.5)";
+    ctx.lineWidth = 0.6;
     ctx.stroke();
 
     // Filter fold lines
-    ctx.strokeStyle = "rgba(170,158,138,0.25)";
+    ctx.strokeStyle = "rgba(150,120,70,0.3)";
     ctx.lineWidth = 0.4;
     for (let i = 0; i < 7; i++) {
       const y = filterTop + 5 + i * (filterH - 10) / 6;
@@ -120,7 +120,7 @@ export default function JointImage({
     ctx.save();
     ctx.translate(cx, filterTop + filterH / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = "rgba(180,140,100,0.45)";
+    ctx.fillStyle = "rgba(160,100,60,0.55)";
     ctx.font = `bold ${filterHW * 0.8}px system-ui, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -161,28 +161,44 @@ export default function JointImage({
       ctx.fillStyle = pGrad;
       ctx.fillRect(cx - tipHW - 2, burnY, tipHW * 2 + 4, filterTop - burnY);
 
-      // Herb showing through — greenish tint
+      // Herb showing through — visible green mottling
       const herbGrad = ctx.createLinearGradient(0, filterTop, 0, burnY);
-      herbGrad.addColorStop(0, "rgba(120,140,100,0.05)");
-      herbGrad.addColorStop(0.3, "rgba(110,130,90,0.12)");
-      herbGrad.addColorStop(0.6, "rgba(100,120,80,0.18)");
-      herbGrad.addColorStop(1, "rgba(90,110,70,0.22)");
+      herbGrad.addColorStop(0, "rgba(90,120,60,0.08)");
+      herbGrad.addColorStop(0.2, "rgba(80,110,50,0.2)");
+      herbGrad.addColorStop(0.5, "rgba(70,100,45,0.3)");
+      herbGrad.addColorStop(0.8, "rgba(65,95,40,0.35)");
+      herbGrad.addColorStop(1, "rgba(60,90,35,0.3)");
       ctx.fillStyle = herbGrad;
       ctx.fillRect(cx - tipHW - 2, burnY, tipHW * 2 + 4, filterTop - burnY);
 
-      // Horizontal herb band (center is darker)
+      // Horizontal herb band (center is denser)
       const herbH = ctx.createLinearGradient(cx - tipHW, 0, cx + tipHW, 0);
-      herbH.addColorStop(0, "rgba(100,120,80,0)");
-      herbH.addColorStop(0.3, "rgba(100,120,80,0.08)");
-      herbH.addColorStop(0.5, "rgba(90,110,70,0.12)");
-      herbH.addColorStop(0.7, "rgba(100,120,80,0.08)");
-      herbH.addColorStop(1, "rgba(100,120,80,0)");
+      herbH.addColorStop(0, "rgba(70,100,45,0)");
+      herbH.addColorStop(0.2, "rgba(70,100,45,0.15)");
+      herbH.addColorStop(0.5, "rgba(60,90,35,0.25)");
+      herbH.addColorStop(0.8, "rgba(70,100,45,0.15)");
+      herbH.addColorStop(1, "rgba(70,100,45,0)");
       ctx.fillStyle = herbH;
       ctx.fillRect(cx - tipHW - 2, burnY, tipHW * 2 + 4, filterTop - burnY);
 
+      // Herb clump spots — random darker patches for mottled look
+      for (let n = 0; n < 15; n++) {
+        const spotY = burnY + hash(n, 42) * (filterTop - burnY);
+        const spotX = cx + (hash(n, 99) - 0.5) * hwAt(spotY) * 1.6;
+        const spotR = 3 + hash(n, 7) * 6;
+        const spotAlpha = 0.08 + hash(n, 13) * 0.12;
+        const spot = ctx.createRadialGradient(spotX, spotY, 0, spotX, spotY, spotR);
+        spot.addColorStop(0, `rgba(55,85,35,${spotAlpha})`);
+        spot.addColorStop(1, "rgba(55,85,35,0)");
+        ctx.fillStyle = spot;
+        ctx.beginPath();
+        ctx.ellipse(spotX, spotY, spotR, spotR * 0.7, hash(n, 55) * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       // Crinkle texture — organic wrinkle lines
-      ctx.strokeStyle = "rgba(180,175,160,0.15)";
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = "rgba(160,155,130,0.25)";
+      ctx.lineWidth = 0.7;
       for (let y = burnY + 8; y < filterTop - 4; y += 6 + hash(0, Math.floor(y)) * 8) {
         const hw = hwAt(y);
         const wobble = (hash(1, Math.floor(y)) - 0.5) * 3;
