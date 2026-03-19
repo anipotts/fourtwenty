@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import JointImage from "./JointImage";
+import JointImage, { getBurnPct } from "./JointImage";
 import SmokeCanvas from "./SmokeCanvas";
 import { useServerStream } from "../hooks/useServerStream";
 import { useLighterSound } from "../hooks/useLighterSound";
@@ -37,18 +37,19 @@ export default function SharedJoint() {
     setTimeout(() => setBurst(false), 150);
   }, [serverHit]);
 
-  // Smoke position tracks the burn line
-  const burnPct = 6 + (100 - 6 - 16) * (1 - Math.max(state.length, 0.01));
+  // Same burn calculation used by JointImage for clip-path
+  const burnPct = getBurnPct(state.length);
 
   return (
     <div className="flex flex-col items-center relative">
-      {/* Smoke — positioned at the burn point */}
+      {/* Smoke — synced to burn line with matching transition */}
       <div
         className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
         style={{
-          top: `calc(${burnPct}% - 60px)`,
+          top: `calc(${burnPct}% - 55px)`,
           width: 160,
           height: 60,
+          transition: "top 0.3s ease-out",
         }}
       >
         <SmokeCanvas
