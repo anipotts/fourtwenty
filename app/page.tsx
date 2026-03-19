@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import CannabisLeaf, { LEAF_PATH } from "./components/CannabisLeaf";
 import SharedJoint from "./components/SharedJoint";
 import CollectiveBreath from "./components/CollectiveBreath";
-import VaultLock from "./components/VaultLock";
 import RollingPaper from "./components/RollingPaper";
 
 function useFavicon(dark: boolean) {
@@ -139,8 +138,6 @@ export default function Home() {
               </span>
               2026.
             </p>
-
-            <VaultLock dark={dark} />
           </div>
 
           <SharedJoint />
