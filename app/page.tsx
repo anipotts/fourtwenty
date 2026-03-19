@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import CannabisLeaf, { LEAF_PATH } from "./components/CannabisLeaf";
 import SharedJoint from "./components/SharedJoint";
-import CollectiveBreath from "./components/CollectiveBreath";
 import RollingPaper from "./components/RollingPaper";
 
 function useFavicon(dark: boolean) {
@@ -114,9 +113,7 @@ export default function Home() {
 
       {phase === "experience" && (
         <main className="h-full w-full flex items-center justify-center px-6 overflow-hidden">
-          <CollectiveBreath />
-
-          <div className="flex flex-col items-center z-10 animate-fade-in">
+          <div className="flex flex-col items-center animate-fade-in">
             <div className="mb-6">{leaf}</div>
 
             <p
