@@ -32,15 +32,14 @@ export function useServerStream() {
         const data = JSON.parse(event.data) as JointState;
         setState(data);
       } catch {
-        // Ignore parse errors (e.g., comment lines)
+        // Ignore parse errors
       }
     };
 
     es.onerror = () => {
       setConnected(false);
       es.close();
-      // Reconnect after 3 seconds
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      reconnectTimeoutRef.current = setTimeout(connect, 2000);
     };
   }, []);
 
@@ -55,23 +54,22 @@ export function useServerStream() {
   }, [connect]);
 
   const hit = useCallback(async () => {
+    // Optimistic update — instant local feedback
+    setState((prev) => {
+      const newLength = prev.length - 0.05;
+      return {
+        ...prev,
+        hits: prev.hits + 1,
+        length: newLength <= 0 ? 1 : newLength,
+        lastHit: Date.now(),
+      };
+    });
+
+    // Fire-and-forget to server — SSE stream will reconcile
     try {
-      const res = await fetch("/api/hit", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setState(data);
-      }
+      await fetch("/api/hit", { method: "POST" });
     } catch {
-      // Optimistic update on network failure
-      setState((prev) => {
-        const newLength = prev.length - 0.05;
-        return {
-          ...prev,
-          hits: prev.hits + 1,
-          length: newLength <= 0 ? 1 : newLength,
-          lastHit: Date.now(),
-        };
-      });
+      // Already updated optimistically, SSE will correct if needed
     }
   }, []);
 
