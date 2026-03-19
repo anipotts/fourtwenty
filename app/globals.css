@@ -64,6 +64,52 @@ body::-webkit-scrollbar {
   }
 }
 
+/* Leaf hero animation — layered via nested wrappers */
+@keyframes leafFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-6px) rotate(1.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-1deg);
+  }
+  75% {
+    transform: translateY(-7px) rotate(0.5deg);
+  }
+}
+
+@keyframes leafPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px currentColor);
+  }
+  50% {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 12px currentColor);
+  }
+}
+
+@keyframes leafShimmer {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.animate-leaf {
+  animation:
+    leafFloat 5s ease-in-out infinite,
+    leafShimmer 4s ease-in-out infinite;
+}
+
+.animate-leaf-glow {
+  animation: leafPulse 6s ease-in-out infinite;
+}
+
 @keyframes breathe {
   0%, 100% {
     transform: scale(0.85);

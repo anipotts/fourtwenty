@@ -65,7 +65,8 @@ export default function Home() {
         >
           <div className="flex flex-col flex-1 justify-center items-center">
             <CannabisLeaf
-              className={`w-16 h-16 sm:w-20 sm:h-20 mb-8 animate-fade-in animate-float cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-150 ${
+              animated
+              className={`w-16 h-16 sm:w-20 sm:h-20 mb-8 animate-fade-in ${
                 dark ? "text-emerald-400" : "text-leaf"
               }`}
               onClick={() => setDark(!dark)}

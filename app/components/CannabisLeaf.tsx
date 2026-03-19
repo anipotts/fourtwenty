@@ -5,22 +5,40 @@ const LEAF_PATH =
 
 export { LEAF_PATH };
 
+interface CannabisLeafProps {
+  className?: string;
+  onClick?: () => void;
+  animated?: boolean;
+}
+
 export default function CannabisLeaf({
   className,
   onClick,
-}: {
-  className?: string;
-  onClick?: () => void;
-}) {
-  return (
+  animated = false,
+}: CannabisLeafProps) {
+  const svg = (
     <svg
       viewBox="0 0 512 512"
       className={className}
       fill="currentColor"
-      onClick={onClick}
+      onClick={!animated ? onClick : undefined}
       xmlns="http://www.w3.org/2000/svg"
     >
       <path d={LEAF_PATH} />
     </svg>
+  );
+
+  if (!animated) return svg;
+
+  // Layered animation: outer div handles glow/pulse, inner handles float/shimmer
+  return (
+    <div
+      className="animate-leaf-glow cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-150"
+      onClick={onClick}
+    >
+      <div className="animate-leaf">
+        {svg}
+      </div>
+    </div>
   );
 }
