@@ -30,13 +30,13 @@ export default function SharedJoint() {
 
   return (
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center">
-      {/* Smoke particles */}
-      <div className="relative" style={{ width: 200, height: 100 }}>
+      {/* Smoke particles — emitter tracks cherry position */}
+      <div className="relative" style={{ width: 200, height: 80 }}>
         <SmokeCanvas
           width={200}
-          height={100}
-          emitX={135}
-          emitY={85}
+          height={80}
+          emitX={100 + state.length * 55}
+          emitY={70}
           burst={burst}
           className="absolute inset-0"
         />
@@ -45,7 +45,7 @@ export default function SharedJoint() {
       {/* The joint */}
       <button
         onClick={hit}
-        className="group cursor-pointer -mt-4 relative"
+        className="group cursor-pointer -mt-2 relative"
         aria-label="Hit the joint"
       >
         <JointSVG
