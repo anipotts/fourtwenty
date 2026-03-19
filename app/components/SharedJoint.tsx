@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import JointCanvas from "./JointCanvas";
+import JointImage from "./JointImage";
 import SmokeCanvas from "./SmokeCanvas";
 import { useServerStream } from "../hooks/useServerStream";
 import { useHitSound } from "../hooks/useHitSound";
@@ -32,31 +32,30 @@ export default function SharedJoint() {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Smoke particles above the joint */}
-      <div className="relative" style={{ width: 160, height: 50 }}>
+      {/* Smoke above cherry */}
+      <div className="relative" style={{ width: 140, height: 40 }}>
         <SmokeCanvas
-          width={160}
-          height={50}
-          emitX={80}
-          emitY={42}
+          width={140}
+          height={40}
+          emitX={70}
+          emitY={32}
           burst={burst}
           className="absolute inset-0"
         />
       </div>
 
-      {/* The joint — Canvas 2D, pixel-level rendering */}
+      {/* Real joint photo with Canvas overlay */}
       <div className="-mt-2">
-        <JointCanvas
+        <JointImage
           length={state.length}
           flare={flare}
-          width={100}
-          height={320}
+          displayHeight={350}
           onClick={hit}
         />
       </div>
 
       {/* Hit counter */}
-      <span className="mt-2 text-leaf/30 text-xs tabular-nums">
+      <span className="mt-3 text-leaf/30 text-xs tabular-nums">
         {state.hits.toLocaleString()} hits
       </span>
     </div>
