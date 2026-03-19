@@ -1,122 +1,168 @@
 "use client";
 
-import { useMemo } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 
 interface JointImageProps {
   length: number;
   flare?: boolean;
-  className?: string;
+  height?: number;
   onClick?: () => void;
 }
 
-/** Compute burn line position as a percentage from top. Never burns into filter. */
+/** Burn line as % from top — never past the filter */
 export function getBurnPct(length: number): number {
-  const tipPct = 6;
-  const filterPct = 16;
-  const burnablePct = 100 - tipPct - filterPct;
-  // Clamp: never burn past the filter line (length 0.20 = filter start)
   const clamped = Math.max(length, 0.20);
-  return tipPct + burnablePct * (1 - clamped);
+  return 6 + 78 * (1 - clamped);
 }
 
 export default function JointImage({
   length,
   flare = false,
-  className,
+  height = 400,
   onClick,
 }: JointImageProps) {
-  // Stable irregular burn edge (regenerates on relight when length jumps)
-  const burnSeed = useMemo(() => Math.random(), [Math.floor(length * 20)]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const animRef = useRef({ current: 1, target: 1 });
+  const rafRef = useRef<number>(0);
+  const [width, setWidth] = useState(0);
 
-  // Image anatomy: top 6% = twisted tip, bottom 16% = filter
-  const tipPct = 6;
-  const filterPct = 16;
-  const burnablePct = 100 - tipPct - filterPct;
+  const render = useCallback(() => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img || !width) return;
 
-  // How much to clip from the top
-  const burnedPct = tipPct + burnablePct * (1 - Math.max(length, 0.01));
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
 
-  // Generate irregular clip-path with slight canoe
-  const clipPath = useMemo(() => {
-    if (length >= 0.95) return "none"; // Show full joint
+    const dpr = window.devicePixelRatio || 1;
 
-    // The burn line sits at burnedPct from top
-    // We want a bumpy line across the joint width
-    // Joint sits roughly in center 20% of image width (40%-60%)
-    const jointLeft = 38;
-    const jointRight = 62;
-    const canoe = (burnSeed - 0.5) * 2; // -1 to 1
+    // Smooth lerp toward target
+    const anim = animRef.current;
+    const diff = anim.target - anim.current;
+    anim.current += Math.abs(diff) > 0.001 ? diff * 0.12 : diff;
 
-    // Generate points along the burn edge
-    const points: string[] = [];
+    // Size canvas to match image aspect ratio at retina res
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
 
-    // Top-left corner (keep everything above burn line clipped)
-    // We clip from burnedPct down to 100% (showing only below burn line)
-    // clip-path: polygon defines the VISIBLE area
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.drawImage(img, 0, 0, width, height);
 
-    // Left side outside joint — straight cut
-    points.push(`0% ${burnedPct}%`);
+    // Burn line in pixels
+    const burnY = (getBurnPct(anim.current) / 100) * height;
 
-    // Across the burn edge with bumps
-    const steps = 8;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const x = jointLeft + (jointRight - jointLeft) * t;
-      // Canoe shape + random bumps
-      const canoeDip = canoe * Math.sin(t * Math.PI) * 1.5;
-      const bump = Math.sin(burnSeed * 100 + i * 7.3) * 0.8;
-      const y = burnedPct + canoeDip + bump;
-      points.push(`${x}% ${y}%`);
+    // Zone sizes (px)
+    const ASH = 4, EMBER = 3, HEAT = 18, FADE = 6;
+
+    // Only process rows that are affected (burn zone ± margin)
+    const startRow = Math.max(0, Math.floor((burnY - FADE - 2) * dpr));
+    const endRow = Math.min(canvas.height, Math.ceil((burnY + ASH + EMBER + HEAT + 2) * dpr));
+    const fullHeight = canvas.height;
+
+    // Erase everything above the fade zone
+    if (startRow > 0) {
+      ctx.clearRect(0, 0, canvas.width, startRow / dpr);
     }
 
-    // Right side + bottom
-    points.push(`100% ${burnedPct}%`);
-    points.push(`100% 100%`);
-    points.push(`0% 100%`);
+    // Process the burn zone pixels
+    if (endRow > startRow) {
+      const regionH = endRow - startRow;
+      const imageData = ctx.getImageData(0, startRow, canvas.width, regionH);
+      const px = imageData.data;
+      const cw = canvas.width;
 
-    return `polygon(${points.join(", ")})`;
-  }, [burnedPct, length, burnSeed]);
+      for (let row = 0; row < regionH; row++) {
+        const y = (startRow + row) / dpr;
+        const d = y - burnY;
+
+        for (let col = 0; col < cw; col++) {
+          const i = (row * cw + col) * 4;
+          if (px[i + 3] < 10) continue;
+
+          if (d < -FADE) {
+            px[i + 3] = 0;
+          } else if (d < 0) {
+            const t = 1 - (-d / FADE);
+            px[i]   = (px[i] * 0.4 + 140 * 0.6) | 0;
+            px[i+1] = (px[i+1] * 0.4 + 130 * 0.6) | 0;
+            px[i+2] = (px[i+2] * 0.4 + 120 * 0.6) | 0;
+            px[i+3] = (px[i+3] * t * t) | 0;
+          } else if (d < ASH) {
+            const grey = 130 + ((Math.random() - 0.5) * 20) | 0;
+            px[i] = grey; px[i+1] = grey - 5; px[i+2] = grey - 10;
+            px[i+3] = (200 + (d / ASH) * 55) | 0;
+          } else if (d < ASH + EMBER) {
+            const t = (d - ASH) / EMBER;
+            const mix = 1 - t * 0.6;
+            const eR = flare ? 255 : 200;
+            const eG = flare ? 120 + t * 40 : 70 + t * 40;
+            const eB = flare ? 30 : 20;
+            px[i]   = (px[i] * (1-mix) + eR * mix) | 0;
+            px[i+1] = (px[i+1] * (1-mix) + eG * mix) | 0;
+            px[i+2] = (px[i+2] * (1-mix) + eB * mix) | 0;
+          } else if (d < ASH + EMBER + HEAT) {
+            const t = (d - ASH - EMBER) / HEAT;
+            const darken = 1 - (1 - t) * 0.35;
+            const brown = (1 - t) * 0.2;
+            px[i]   = Math.min(255, (px[i] * darken + 60 * brown) | 0);
+            px[i+1] = (px[i+1] * darken * (1 - brown * 0.3)) | 0;
+            px[i+2] = (px[i+2] * darken * (1 - brown * 0.6)) | 0;
+          }
+        }
+      }
+      ctx.putImageData(imageData, 0, startRow);
+    }
+
+    // Ember glow overlay
+    if (anim.current < 0.95 && anim.current > 0.20) {
+      const r = flare ? 20 : 8;
+      const glow = ctx.createRadialGradient(width/2, burnY+ASH+1, 0, width/2, burnY+ASH+1, r);
+      glow.addColorStop(0, flare ? "rgba(255,100,20,0.35)" : "rgba(255,80,0,0.1)");
+      glow.addColorStop(1, "rgba(255,40,0,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.ellipse(width/2, burnY+ASH+1, r, r*0.5, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    if (Math.abs(anim.target - anim.current) > 0.001) {
+      rafRef.current = requestAnimationFrame(render);
+    }
+  }, [flare, width, height]);
+
+  useEffect(() => {
+    animRef.current.target = length;
+    rafRef.current = requestAnimationFrame(function loop() {
+      render();
+      if (Math.abs(animRef.current.target - animRef.current.current) > 0.001) {
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    });
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [length, render]);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      imgRef.current = img;
+      setWidth(Math.round(height * (img.naturalWidth / img.naturalHeight)));
+      render();
+    };
+    img.src = "/joint.webp";
+  }, [height, render]);
+
+  if (!width) return null;
 
   return (
-    <div className={`relative ${className ?? ""}`} onClick={onClick} style={{ cursor: "pointer" }}>
-      {/* The joint image — clipped by burn progression */}
-      <img
-        src="/joint.webp"
-        alt="Joint"
-        draggable={false}
-        className="h-full w-auto select-none"
-        style={{
-          clipPath: clipPath === "none" ? undefined : clipPath,
-          transition: "clip-path 0.3s ease-out",
-        }}
-      />
-
-      {/* Cherry/ember glow at the burn line */}
-      {length > 0.01 && length < 0.95 && (
-        <div
-          className="absolute left-1/2 pointer-events-none"
-          style={{
-            top: `${burnedPct}%`,
-            transform: "translateX(-50%) translateY(-50%)",
-            transition: "top 0.3s ease-out",
-          }}
-        >
-          {/* Ember dot */}
-          <div
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: flare ? 14 : 8,
-              height: flare ? 6 : 4,
-              background: flare
-                ? "radial-gradient(ellipse, #ff8822 0%, #cc4400 40%, transparent 70%)"
-                : "radial-gradient(ellipse, #884422 0%, #554038 50%, transparent 70%)",
-              boxShadow: flare
-                ? "0 0 12px 4px rgba(255,100,20,0.4), 0 0 24px 8px rgba(255,60,0,0.15)"
-                : "0 0 4px 1px rgba(200,80,20,0.15)",
-            }}
-          />
-        </div>
-      )}
-    </div>
+    <canvas
+      ref={canvasRef}
+      style={{ width, height, cursor: "pointer" }}
+      onClick={onClick}
+    />
   );
 }
