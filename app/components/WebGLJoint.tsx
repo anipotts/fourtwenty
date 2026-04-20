@@ -101,39 +101,36 @@ export default function WebGLJoint({
     tipGroup.visible = false;
     scene.add(tipGroup);
 
-    const emberGeom = new THREE.RingGeometry(0.78, 1.0, 48);
+    // Squashed-sphere ember — visible from any camera angle
+    const emberGeom = new THREE.SphereGeometry(1, 24, 16);
     const emberMat = new THREE.MeshStandardMaterial({
       color: EMBER_COLOR,
       emissive: EMBER_COLOR,
-      emissiveIntensity: 2.2,
-      roughness: 0.55,
-      side: THREE.DoubleSide,
+      emissiveIntensity: 2.4,
+      roughness: 0.45,
     });
     const ember = new THREE.Mesh(emberGeom, emberMat);
-    ember.rotation.y = Math.PI / 2; // face +X
     tipGroup.add(ember);
 
-    const ashGeom = new THREE.CircleGeometry(1, 48);
+    // Dark ash core inside the ember glow
+    const ashGeom = new THREE.SphereGeometry(1, 16, 12);
     const ashMat = new THREE.MeshStandardMaterial({
       color: ASH_COLOR,
       roughness: 1,
-      side: THREE.DoubleSide,
     });
     const ash = new THREE.Mesh(ashGeom, ashMat);
-    ash.rotation.y = Math.PI / 2;
     tipGroup.add(ash);
 
-    const coreGeom = new THREE.CircleGeometry(1, 32);
+    // Hot white-yellow core, pulses
+    const coreGeom = new THREE.SphereGeometry(1, 16, 12);
     const coreMat = new THREE.MeshBasicMaterial({
       color: EMBER_HOT,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.6,
       blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
       depthWrite: false,
     });
     const core = new THREE.Mesh(coreGeom, coreMat);
-    core.rotation.y = Math.PI / 2;
     tipGroup.add(core);
 
     const glowMat = new THREE.SpriteMaterial({
@@ -214,8 +211,8 @@ export default function WebGLJoint({
     };
 
     // ===== LOAD MODEL =====
-    // Clip plane in world coords: clips x > constant (removes lit end portion)
-    const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 999);
+    // Clip plane in world coords: clips x < constant (removes LEFT / twist side as burn advances)
+    const clipPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 999);
     const clippingPlanes = [clipPlane];
 
     let model: THREE.Group | null = null;
@@ -298,19 +295,31 @@ export default function WebGLJoint({
           return maxR;
         };
 
-        const leftR = sampleRadiusAtX(bb.min.x + 0.1, 0.08);
-        const rightR = sampleRadiusAtX(bb.max.x - 0.1, 0.08);
-        console.log("[joint] end radii: -X=", leftR.toFixed(3), "+X=", rightR.toFixed(3));
+        // Sample at multiple depths to reliably detect the tapering (twist) end
+        const leftClose = sampleRadiusAtX(bb.min.x + 0.08, 0.06);
+        const leftInner = sampleRadiusAtX(bb.min.x + 0.4, 0.1);
+        const rightClose = sampleRadiusAtX(bb.max.x - 0.08, 0.06);
+        const rightInner = sampleRadiusAtX(bb.max.x - 0.4, 0.1);
+        console.log("[joint] radii -X close/inner:", leftClose.toFixed(3), leftInner.toFixed(3),
+          "+X close/inner:", rightClose.toFixed(3), rightInner.toFixed(3));
 
-        // Filter end is the WIDE end (cardboard crutch), twist/lit is NARROW.
-        // We want the lit end on +X. If +X is wider → it's the filter → flip.
-        if (rightR > leftR * 1.08) {
+        // Twist end has rapid taper: close-to-edge radius much smaller than a bit inside.
+        // Filter end is ~cylindrical: close and inner radii similar.
+        const leftTaperRatio = leftInner > 0 ? leftClose / leftInner : 1;
+        const rightTaperRatio = rightInner > 0 ? rightClose / rightInner : 1;
+        console.log("[joint] taper ratios -X:", leftTaperRatio.toFixed(3),
+          "+X:", rightTaperRatio.toFixed(3));
+
+        // Lower taper ratio = more tapered = twist/lit end. Put it on -X (LEFT for viewer).
+        if (rightTaperRatio < leftTaperRatio) {
           model.rotation.y += Math.PI;
           model.updateMatrixWorld(true);
           const bbFlip = new THREE.Box3().setFromObject(model);
           model.position.sub(bbFlip.getCenter(new THREE.Vector3()));
           model.updateMatrixWorld(true);
-          console.log("[joint] flipped — lit end now on +X");
+          console.log("[joint] flipped so twist/lit end is on -X (left)");
+        } else {
+          console.log("[joint] no flip needed — twist already on -X");
         }
 
         // Final bbox for burn
@@ -354,40 +363,45 @@ export default function WebGLJoint({
       if (model) {
         const burnFrac = Math.max(animLength, MIN_BURN);
         const modelLen = modelMaxX - modelMinX;
-        const burnX = modelMinX + modelLen * burnFrac;
-        clipPlane.constant = burnX;
+        // Twist/lit end is on -X. Burn consumes -X side as length decreases.
+        // burnFrac=1 → burnX = modelMinX (no clipping). burnFrac=0.2 → burnX near modelMaxX.
+        const burnX = modelMaxX - modelLen * burnFrac;
+        clipPlane.constant = -burnX; // plane eq: x + constant < 0 → x < burnX clipped
 
-        // Burn radius (generous — covers paper opening)
-        const tBurn = (burnX - modelMinX) / modelLen;
-        const burnR = 0.16 + 0.08 * tBurn;
+        // Burn radius at the burn plane (narrower near twist tip)
+        const tBurn = 1 - (burnX - modelMinX) / modelLen; // 0 at filter, 1 at twist
+        const burnR = 0.22 - 0.12 * tBurn; // fuller when burning wide body, thinner at twist
 
         // Position the ember assembly at the burn plane
         tipGroup.position.set(burnX, 0, 0);
 
-        ash.position.set(0.004, 0, 0);
-        ash.scale.set(1, burnR * 1.05, burnR * 1.05);
+        // Ember plug — thin along X, round in YZ. Sits at burn tip.
+        ember.position.set(-0.01, 0, 0);
+        ember.scale.set(0.035, burnR * 1.05, burnR * 1.05);
 
-        ember.position.set(0.006, 0, 0);
-        ember.scale.set(1, burnR * 1.1, burnR * 1.1);
+        // Ash plug slightly inset to -X (the consumed side)
+        ash.position.set(-0.03, 0, 0);
+        ash.scale.set(0.03, burnR * 0.85, burnR * 0.85);
 
         const flaring = now < flareEndRef.current;
         const pulse = 0.75 + Math.sin(now * 0.007) * 0.25;
 
-        core.position.set(0.008, 0, 0);
+        // Hot core slightly in front of ember (more visible)
+        core.position.set(0.002, 0, 0);
         const coreR = burnR * (flaring ? 0.7 : 0.45) * pulse;
-        core.scale.set(1, coreR, coreR);
+        core.scale.set(0.025, coreR, coreR);
         coreMat.opacity = flaring ? 0.85 : 0.42 * pulse;
         (coreMat.color as THREE.Color).copy(flaring ? EMBER_HOT : EMBER_COLOR).lerp(EMBER_HOT, flaring ? 1 : 0.4);
 
         emberMat.emissive.copy(EMBER_COLOR).lerp(EMBER_HOT, flaring ? 0.8 : 0.3);
         emberMat.emissiveIntensity = (flaring ? 3.6 : 2.0) * (0.92 + pulse * 0.08);
 
-        glow.position.set(0.02, 0, 0);
+        glow.position.set(-0.02, 0, 0);
         const glowS = burnR * (flaring ? 5.0 : 3.0);
         glow.scale.set(glowS, glowS, 1);
         glowMat.opacity = flaring ? 0.55 : 0.32 + Math.sin(now * 0.005) * 0.04;
 
-        emberLight.position.set(burnX + 0.1, 0.05, 0.15);
+        emberLight.position.set(burnX - 0.1, 0.05, 0.15);
         emberLight.intensity = flaring ? 2.2 : 0.95 * (0.9 + pulse * 0.1);
         emberLight.color.copy(flaring ? EMBER_HOT : EMBER_COLOR);
 
