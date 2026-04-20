@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import JointImage from "./JointImage";
-import SmokeCanvas from "./SmokeCanvas";
+import WebGLJoint from "./WebGLJoint";
 import { useServerStream } from "../hooks/useServerStream";
 import { useLighterSound } from "../hooks/useLighterSound";
 
@@ -10,8 +9,6 @@ export default function SharedJoint() {
   const { state, hit: serverHit } = useServerStream();
   const { play: playLighter } = useLighterSound(0.18);
   const [flare, setFlare] = useState(false);
-  const [burst, setBurst] = useState(false);
-  const [burnPct, setBurnPct] = useState(6);
   const prevLength = useRef(state.length);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -20,40 +17,26 @@ export default function SharedJoint() {
     prevLength.current = state.length;
   }, [state.length, playLighter]);
 
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => timers.current.forEach(clearTimeout);
-  }, []);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const hit = useCallback(() => {
     serverHit();
     setFlare(true);
-    setBurst(true);
-    timers.current.push(setTimeout(() => setFlare(false), 400));
-    timers.current.push(setTimeout(() => setBurst(false), 150));
+    timers.current.push(setTimeout(() => setFlare(false), 420));
   }, [serverHit]);
 
   return (
-    <div className="flex flex-col items-center relative">
-      {/* Smoke — synced to animated burn position via onBurnY */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
-        style={{ top: `calc(${burnPct}% - 50px)`, width: 160, height: 60 }}
-      >
-        <SmokeCanvas width={160} height={60} emitX={80} emitY={50} burst={burst} />
+    <div className="absolute inset-0">
+      <WebGLJoint length={state.length} flare={flare} onClick={hit} />
+
+      <div className="absolute bottom-16 left-0 right-0 flex flex-col items-center pointer-events-none z-10">
+        <span className="text-leaf/40 text-xs tabular-nums">
+          {state.hits.toLocaleString()} hits
+        </span>
+        <span className="text-leaf/25 text-[10px] mt-1">
+          3D model: woddson · CC-BY
+        </span>
       </div>
-
-      <JointImage
-        length={state.length}
-        flare={flare}
-        height={400}
-        onBurnY={setBurnPct}
-        onClick={hit}
-      />
-
-      <span className="mt-3 text-leaf/30 text-xs tabular-nums">
-        {state.hits.toLocaleString()} hits
-      </span>
     </div>
   );
 }

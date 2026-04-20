@@ -69,7 +69,7 @@ export default function Home() {
       )}
 
       {phase === "experience" && (
-        <main className="h-full w-full flex items-center justify-center overflow-hidden">
+        <main className="h-full w-full relative">
           <SharedJoint />
         </main>
       )}
