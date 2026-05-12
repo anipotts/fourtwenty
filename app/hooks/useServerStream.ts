@@ -2,20 +2,47 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
+export type JointPhase = "unlit" | "lit" | "roach" | "rolling";
+
 interface JointState {
   hits: number;
   length: number;
   lastHit: number;
   visitors: number;
+  phase: JointPhase;
+  rollingStartedAt: number;
 }
 
-const DEFAULT_STATE: JointState = { hits: 0, length: 1, lastHit: 0, visitors: 1 };
+const DEFAULT_STATE: JointState = {
+  hits: 0,
+  length: 1,
+  lastHit: 0,
+  visitors: 1,
+  phase: "unlit",
+  rollingStartedAt: 0,
+};
 
-export function useServerStream() {
+// Back-compat: if the server payload is missing phase (e.g. mid-deploy), infer one
+function normalize(raw: Partial<JointState>): JointState {
+  const phase: JointPhase =
+    raw.phase ?? (raw.length !== undefined && raw.length <= 0.2 ? "roach" : "lit");
+  return {
+    hits: raw.hits ?? 0,
+    length: raw.length ?? 1,
+    lastHit: raw.lastHit ?? 0,
+    visitors: raw.visitors ?? 1,
+    phase,
+    rollingStartedAt: raw.rollingStartedAt ?? 0,
+  };
+}
+
+export function useServerStream(onRollingTriggered?: () => void) {
   const [state, setState] = useState<JointState>(DEFAULT_STATE);
   const [connected, setConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const rollingCallbackRef = useRef(onRollingTriggered);
+  rollingCallbackRef.current = onRollingTriggered;
 
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -29,10 +56,10 @@ export function useServerStream() {
 
     es.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as JointState;
-        setState(data);
+        const data = JSON.parse(event.data) as Partial<JointState>;
+        setState(normalize(data));
       } catch {
-        // Ignore parse errors
+        // ignore parse errors
       }
     };
 
@@ -54,22 +81,42 @@ export function useServerStream() {
   }, [connect]);
 
   const hit = useCallback(async () => {
-    // Optimistic update — instant local feedback
+    // Narrow optimistic updates: only the transitions we can predict from a single hit
     setState((prev) => {
-      const newLength = prev.length - 0.05;
-      return {
-        ...prev,
-        hits: prev.hits + 1,
-        length: newLength <= 0.20 ? 1 : newLength,
-        lastHit: Date.now(),
-      };
+      // Ignore hits while rolling (matches server)
+      if (prev.phase === "rolling") return prev;
+
+      if (prev.phase === "unlit") {
+        return { ...prev, phase: "lit", hits: prev.hits + 1, lastHit: Date.now() };
+      }
+
+      if (prev.phase === "lit") {
+        // Same exponential formula as server
+        const decrement = 0.001 + 0.01 * (1 - prev.length);
+        const newLength = Math.max(0.2, prev.length - decrement);
+        return {
+          ...prev,
+          hits: prev.hits + 1,
+          length: newLength,
+          lastHit: Date.now(),
+        };
+      }
+
+      // roach: just bump the count locally
+      return { ...prev, hits: prev.hits + 1, lastHit: Date.now() };
     });
 
-    // Fire-and-forget to server — SSE stream will reconcile
     try {
-      await fetch("/api/hit", { method: "POST" });
+      const res = await fetch("/api/hit", { method: "POST" });
+      if (res.ok) {
+        const data = (await res.json()) as Partial<JointState> & { triggeredRolling?: boolean };
+        setState(normalize(data));
+        if (data.triggeredRolling) {
+          rollingCallbackRef.current?.();
+        }
+      }
     } catch {
-      // Already updated optimistically, SSE will correct if needed
+      // Already applied optimistically; SSE will reconcile.
     }
   }, []);
 

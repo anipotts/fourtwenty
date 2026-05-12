@@ -2,24 +2,65 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import type { JointPhase } from "../hooks/useServerStream";
 
 interface WebGLJointProps {
   length: number;
+  phase: JointPhase;
+  rollingStartedAt: number;
   flare?: boolean;
   onClick?: () => void;
 }
 
-const MIN_BURN = 0.2;
-const EASE = 0.14;
+// ========== DIMENSIONS ==========
+const PAPER_LEN = 3.8;
+const PAPER_R_LIT = 0.22; // wide end on -X (lit)
+const PAPER_R_FILTER = 0.14; // narrow end on +X (meets filter)
+const FILTER_LEN = 0.58;
+const FILTER_R = 0.135;
+const TWIST_H = 0.32;
+const TWIST_R = 0.17;
+
+const PAPER_MIN_X = -PAPER_LEN / 2; // -1.9 (lit)
+const PAPER_MAX_X = PAPER_LEN / 2; //  +1.9 (filter side)
+const FILTER_CENTER_X = PAPER_MAX_X + FILTER_LEN / 2 - 0.02;
+const TWIST_CENTER_X = PAPER_MIN_X - TWIST_H / 2 + 0.02;
+
+const FILTER_LINE = 0.2;
+const ROLL_DURATION = 2200;
+const IGNITE_DURATION = 500;
+const FLARE_DURATION = 480;
+
+const EASE = 0.08;
 const SETTLED = 0.0015;
 
-const EMBER_COLOR = new THREE.Color(0xd44410);
-const EMBER_HOT = new THREE.Color(0xffa030);
-const ASH_COLOR = new THREE.Color(0x1d1a16);
+// ========== COLORS ==========
+const EMBER_WARM = new THREE.Color(0xd44410);
+const EMBER_HOT = new THREE.Color(0xffb040);
+const EMBER_COOL = new THREE.Color(0x7a2a10);
+const ASH_COLOR = new THREE.Color(0x1c1813);
+const HERB_COLOR = new THREE.Color(0x2a3b1a);
+const PAPER_COLOR = new THREE.Color(0xece4cb);
+const FILTER_COLOR = new THREE.Color(0xc7a478);
 
-const SMOKE_MAX = 180;
-const SMOKE_LIFE_MS = 3400;
+const SMOKE_MAX = 200;
+const SMOKE_LIFE_MS = 3200;
+
+// ========== HELPERS ==========
+function paperRadiusAt(x: number): number {
+  // Lerp from LIT (wide) to FILTER (narrow)
+  const t = Math.max(0, Math.min(1, (x - PAPER_MIN_X) / PAPER_LEN));
+  return PAPER_R_LIT + (PAPER_R_FILTER - PAPER_R_LIT) * t;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
 
 function makeSmokeTexture(): THREE.CanvasTexture {
   const size = 64;
@@ -37,22 +78,161 @@ function makeSmokeTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+function makeFlameTexture(): THREE.CanvasTexture {
+  const w = 64;
+  const h = 96;
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext("2d")!;
+  // Flame teardrop: bright yellow core → orange → transparent
+  const g = ctx.createRadialGradient(w / 2, h * 0.7, 0, w / 2, h * 0.55, w * 0.5);
+  g.addColorStop(0, "rgba(255,245,200,1)");
+  g.addColorStop(0.25, "rgba(255,200,80,0.95)");
+  g.addColorStop(0.6, "rgba(255,110,30,0.6)");
+  g.addColorStop(1, "rgba(180,60,10,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h * 0.6, w * 0.35, h * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Teardrop top
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 8, h * 0.55);
+  ctx.quadraticCurveTo(w / 2, h * 0.05, w / 2 + 8, h * 0.55);
+  ctx.fillStyle = "rgba(255,180,50,0.85)";
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function makePaperTexture(): THREE.CanvasTexture {
+  // Tall strip texture — wraps around the cylinder (wrapS repeating)
+  const w = 512;
+  const h = 1024;
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext("2d")!;
+
+  // Cream base
+  ctx.fillStyle = "#ede6d1";
+  ctx.fillRect(0, 0, w, h);
+
+  // Herb visible through translucent paper — denser down the "middle" (front)
+  const herb = ctx.createLinearGradient(0, 0, w, 0);
+  herb.addColorStop(0, "rgba(66,94,42,0)");
+  herb.addColorStop(0.25, "rgba(72,100,48,0.18)");
+  herb.addColorStop(0.5, "rgba(56,80,32,0.34)");
+  herb.addColorStop(0.75, "rgba(72,100,48,0.18)");
+  herb.addColorStop(1, "rgba(66,94,42,0)");
+  ctx.fillStyle = herb;
+  ctx.fillRect(0, 0, w, h);
+
+  // Herb flecks (darker spots)
+  for (let i = 0; i < 240; i++) {
+    const x = w * 0.18 + Math.random() * w * 0.64;
+    const y = Math.random() * h;
+    const r = 2 + Math.random() * 5;
+    const alpha = 0.08 + Math.random() * 0.16;
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(40,60,24,${alpha})`);
+    grd.addColorStop(1, "rgba(40,60,24,0)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.75, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Fine paper grain
+  const img = ctx.getImageData(0, 0, w, h);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 9;
+    img.data[i] = Math.max(0, Math.min(255, img.data[i] + n));
+    img.data[i + 1] = Math.max(0, Math.min(255, img.data[i + 1] + n));
+    img.data[i + 2] = Math.max(0, Math.min(255, img.data[i + 2] + n));
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // Diagonal glue seam
+  ctx.strokeStyle = "rgba(170,158,128,0.42)";
+  ctx.setLineDash([3, 7]);
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.78, 0);
+  ctx.lineTo(w * 0.58, h);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function makeFilterTexture(): THREE.CanvasTexture {
+  const w = 256;
+  const h = 64;
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext("2d")!;
+
+  const bg = ctx.createLinearGradient(0, 0, w, 0);
+  bg.addColorStop(0, "#a88354");
+  bg.addColorStop(0.5, "#d6b082");
+  bg.addColorStop(1, "#a88354");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // Horizontal ridges (RAW crutch look)
+  ctx.strokeStyle = "rgba(90,60,25,0.55)";
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 9; i++) {
+    const y = (i / 9) * h + h / 18;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 export default function WebGLJoint({
   length,
+  phase,
+  rollingStartedAt,
   flare = false,
   onClick,
 }: WebGLJointProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const targetLengthRef = useRef(length);
+  const lengthTargetRef = useRef(length);
+  const phaseRef = useRef<JointPhase>(phase);
+  const rollingStartedAtRef = useRef(rollingStartedAt);
   const flareEndRef = useRef(0);
-  const burstQueueRef = useRef(0);
+  const ignitingStartRef = useRef(0);
+  const prevPhaseRef = useRef<JointPhase>(phase);
 
-  targetLengthRef.current = length;
+  lengthTargetRef.current = length;
+  phaseRef.current = phase;
+  rollingStartedAtRef.current = rollingStartedAt;
+
+  // Detect unlit → lit to trigger the client-only "igniting" micro-phase
   useEffect(() => {
-    if (flare) {
-      flareEndRef.current = performance.now() + 480;
-      burstQueueRef.current += 16;
+    if (prevPhaseRef.current === "unlit" && phase === "lit") {
+      ignitingStartRef.current = performance.now();
     }
+    prevPhaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    if (flare) flareEndRef.current = performance.now() + FLARE_DURATION;
   }, [flare]);
 
   useEffect(() => {
@@ -66,8 +246,8 @@ export default function WebGLJoint({
     const initial = getSize();
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(32, initial.w / initial.h, 0.1, 100);
-    camera.position.set(0, 0.6, 7.5);
+    const camera = new THREE.PerspectiveCamera(26, initial.w / initial.h, 0.1, 100);
+    camera.position.set(0, 0.45, 8);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -80,59 +260,145 @@ export default function WebGLJoint({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
 
-    // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    // ====== LIGHTING ======
+    scene.add(new THREE.AmbientLight(0xffffff, 0.58));
 
     const key = new THREE.DirectionalLight(0xfff1dc, 0.85);
     key.position.set(3, 4, 5);
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0xbad2ff, 0.35);
+    const rim = new THREE.DirectionalLight(0xbcd0ff, 0.32);
     rim.position.set(-3, 1, -2);
     scene.add(rim);
 
-    const emberLight = new THREE.PointLight(0xff5820, 1.0, 1.8, 2);
+    const emberLight = new THREE.PointLight(EMBER_WARM, 0, 2.2, 2);
     scene.add(emberLight);
 
+    // ====== TEXTURES ======
+    const paperTex = makePaperTexture();
+    const filterTex = makeFilterTexture();
     const smokeTex = makeSmokeTexture();
+    const flameTex = makeFlameTexture();
 
-    // Ember overlays — facing +X (aligned to burn plane at the lit end)
-    const tipGroup = new THREE.Group();
-    tipGroup.visible = false;
-    scene.add(tipGroup);
+    // ====== JOINT GROUP ======
+    const jointGroup = new THREE.Group();
+    scene.add(jointGroup);
 
-    // Squashed-sphere ember — visible from any camera angle
-    const emberGeom = new THREE.SphereGeometry(1, 24, 16);
-    const emberMat = new THREE.MeshStandardMaterial({
-      color: EMBER_COLOR,
-      emissive: EMBER_COLOR,
-      emissiveIntensity: 2.4,
-      roughness: 0.45,
+    // ----- Paper body (cone-shaped cylinder, along X) -----
+    // cylinder is created along Y, rotated around Z by π/2 so wide end ends up at -X
+    const paperGeom = new THREE.CylinderGeometry(
+      PAPER_R_LIT, // top (at +Y originally, goes to -X after rotation)
+      PAPER_R_FILTER, // bottom (at -Y, goes to +X)
+      PAPER_LEN,
+      72,
+      6,
+      true // open-ended — cut face handled by separate herb-cap mesh
+    );
+
+    // Clip plane: world-space. Clips x < constant.
+    const clipPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -PAPER_MIN_X + 1);
+    const clippingPlanes = [clipPlane];
+
+    const paperMat = new THREE.MeshStandardMaterial({
+      map: paperTex,
+      color: PAPER_COLOR,
+      roughness: 0.84,
+      metalness: 0,
+      clippingPlanes,
+      clipShadows: true,
+      side: THREE.FrontSide,
     });
-    const ember = new THREE.Mesh(emberGeom, emberMat);
-    tipGroup.add(ember);
+    const paper = new THREE.Mesh(paperGeom, paperMat);
+    paper.rotation.z = Math.PI / 2;
+    jointGroup.add(paper);
 
-    // Dark ash core inside the ember glow
-    const ashGeom = new THREE.SphereGeometry(1, 16, 12);
+    // ----- Filter (crutch) -----
+    const filterGeom = new THREE.CylinderGeometry(FILTER_R, FILTER_R, FILTER_LEN, 48);
+    const filterMat = new THREE.MeshStandardMaterial({
+      map: filterTex,
+      color: FILTER_COLOR,
+      roughness: 0.95,
+      metalness: 0,
+    });
+    const filter = new THREE.Mesh(filterGeom, filterMat);
+    filter.rotation.z = Math.PI / 2;
+    filter.position.x = FILTER_CENTER_X;
+    jointGroup.add(filter);
+
+    // Tiny dark band where paper meets filter
+    const seamGeom = new THREE.CylinderGeometry(FILTER_R + 0.003, PAPER_R_FILTER + 0.003, 0.04, 48);
+    const seamMat = new THREE.MeshStandardMaterial({ color: 0x6e4e2a, roughness: 1 });
+    const seam = new THREE.Mesh(seamGeom, seamMat);
+    seam.rotation.z = Math.PI / 2;
+    seam.position.x = PAPER_MAX_X - 0.005;
+    jointGroup.add(seam);
+
+    // ----- Twist tip (only visible in unlit + rolling rebuild) -----
+    const twistGeom = new THREE.ConeGeometry(TWIST_R, TWIST_H, 24);
+    const twistMat = new THREE.MeshStandardMaterial({
+      color: 0xe8e0c6,
+      roughness: 0.88,
+      metalness: 0,
+    });
+    const twist = new THREE.Mesh(twistGeom, twistMat);
+    twist.rotation.z = Math.PI / 2; // point along -X
+    twist.position.x = TWIST_CENTER_X;
+    jointGroup.add(twist);
+
+    // ====== EMBER / ASH / HERB-CAP group (positioned at burn plane) ======
+    const tipGroup = new THREE.Group();
+    jointGroup.add(tipGroup);
+
+    // Herb-cap: disc at burn plane showing dark-olive herb interior (instead of hollow paper)
+    const herbCapGeom = new THREE.CircleGeometry(1, 48);
+    const herbCapMat = new THREE.MeshStandardMaterial({
+      color: HERB_COLOR,
+      roughness: 0.95,
+      emissive: 0x1a2410,
+      emissiveIntensity: 0.15,
+      side: THREE.DoubleSide,
+    });
+    const herbCap = new THREE.Mesh(herbCapGeom, herbCapMat);
+    herbCap.rotation.y = -Math.PI / 2; // face -X
+    tipGroup.add(herbCap);
+
+    // Ash ellipsoid (slightly larger than paper radius → peeks around the paper edge as a dark rim)
+    const ashGeom = new THREE.SphereGeometry(1, 24, 14);
     const ashMat = new THREE.MeshStandardMaterial({
       color: ASH_COLOR,
       roughness: 1,
+      metalness: 0,
     });
     const ash = new THREE.Mesh(ashGeom, ashMat);
     tipGroup.add(ash);
 
-    // Hot white-yellow core, pulses
-    const coreGeom = new THREE.SphereGeometry(1, 16, 12);
-    const coreMat = new THREE.MeshBasicMaterial({
+    // Ember ellipsoid — emissive band around the paper edge
+    const emberGeom = new THREE.SphereGeometry(1, 24, 14);
+    const emberMat = new THREE.MeshStandardMaterial({
+      color: EMBER_WARM,
+      emissive: EMBER_WARM,
+      emissiveIntensity: 2.4,
+      roughness: 0.5,
+      metalness: 0,
+      transparent: true,
+      opacity: 1,
+    });
+    const ember = new THREE.Mesh(emberGeom, emberMat);
+    tipGroup.add(ember);
+
+    // Hot core — additive blend, brighter yellow center
+    const coreMat = new THREE.SpriteMaterial({
+      map: smokeTex,
       color: EMBER_HOT,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
-    const core = new THREE.Mesh(coreGeom, coreMat);
+    const core = new THREE.Sprite(coreMat);
     tipGroup.add(core);
 
+    // Glow halo
     const glowMat = new THREE.SpriteMaterial({
       map: smokeTex,
       color: 0xff8a40,
@@ -144,18 +410,34 @@ export default function WebGLJoint({
     const glow = new THREE.Sprite(glowMat);
     tipGroup.add(glow);
 
-    // ===== SMOKE =====
+    // Igniting flame — only visible during igniting micro-phase
+    const flameMat = new THREE.SpriteMaterial({
+      map: flameTex,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flame = new THREE.Sprite(flameMat);
+    flame.scale.set(0.5, 0.75, 1);
+    flame.visible = false;
+    tipGroup.add(flame);
+
+    // ====== SMOKE (independent of jointGroup so it doesn't spin during rolling) ======
     const positions = new Float32Array(SMOKE_MAX * 3);
     const velocities = new Float32Array(SMOKE_MAX * 3);
     const lifetimes = new Float32Array(SMOKE_MAX);
     const starts = new Float32Array(SMOKE_MAX);
     const sizes = new Float32Array(SMOKE_MAX);
     const alphas = new Float32Array(SMOKE_MAX);
+    const grays = new Float32Array(SMOKE_MAX); // 1 = white smoke, 0.5 = gray (roach)
 
     const smokeGeom = new THREE.BufferGeometry();
     smokeGeom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     smokeGeom.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
     smokeGeom.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1));
+    smokeGeom.setAttribute("gray", new THREE.BufferAttribute(grays, 1));
 
     const smokeMat = new THREE.ShaderMaterial({
       uniforms: {
@@ -165,10 +447,13 @@ export default function WebGLJoint({
       vertexShader: `
         attribute float size;
         attribute float alpha;
+        attribute float gray;
         varying float vAlpha;
+        varying float vGray;
         uniform float pixelRatio;
         void main() {
           vAlpha = alpha;
+          vGray = gray;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = size * pixelRatio * (200.0 / -mv.z);
           gl_Position = projectionMatrix * mv;
@@ -177,9 +462,11 @@ export default function WebGLJoint({
       fragmentShader: `
         uniform sampler2D map;
         varying float vAlpha;
+        varying float vGray;
         void main() {
           vec4 c = texture2D(map, gl_PointCoord);
-          gl_FragColor = vec4(c.rgb, c.a * vAlpha);
+          vec3 tint = mix(vec3(0.55), vec3(1.0), vGray);
+          gl_FragColor = vec4(c.rgb * tint, c.a * vAlpha);
         }
       `,
       transparent: true,
@@ -191,238 +478,237 @@ export default function WebGLJoint({
     scene.add(smokePoints);
 
     let smokeCursor = 0;
-    const spawnSmoke = (pos: THREE.Vector3, burst: boolean) => {
-      const count = burst ? 5 : 1;
+    const spawnSmoke = (worldPos: THREE.Vector3, graynessMul: number, burst: boolean) => {
+      const count = burst ? 4 : 1;
       for (let k = 0; k < count; k++) {
         const i = smokeCursor;
         smokeCursor = (smokeCursor + 1) % SMOKE_MAX;
         const angle = Math.random() * Math.PI * 2;
-        const r = Math.random() * 0.06;
-        positions[i * 3]     = pos.x + Math.cos(angle) * r;
-        positions[i * 3 + 1] = pos.y + 0.03;
-        positions[i * 3 + 2] = pos.z + Math.sin(angle) * r;
-        velocities[i * 3]     = (Math.random() - 0.5) * (burst ? 0.010 : 0.003);
-        velocities[i * 3 + 1] = 0.008 + Math.random() * 0.012 + (burst ? 0.006 : 0);
+        const r = Math.random() * 0.05;
+        positions[i * 3] = worldPos.x + Math.cos(angle) * r;
+        positions[i * 3 + 1] = worldPos.y + 0.04;
+        positions[i * 3 + 2] = worldPos.z + Math.sin(angle) * r;
+        velocities[i * 3] = (Math.random() - 0.5) * (burst ? 0.010 : 0.003);
+        velocities[i * 3 + 1] = 0.008 + Math.random() * 0.012 + (burst ? 0.005 : 0);
         velocities[i * 3 + 2] = (Math.random() - 0.5) * (burst ? 0.010 : 0.003);
-        sizes[i] = 22 + Math.random() * 22 + (burst ? 10 : 0);
+        sizes[i] = 22 + Math.random() * 20 + (burst ? 10 : 0);
         lifetimes[i] = SMOKE_LIFE_MS * (0.8 + Math.random() * 0.4);
         starts[i] = performance.now();
+        grays[i] = graynessMul;
       }
     };
 
-    // ===== LOAD MODEL =====
-    // Clip plane in world coords: clips x < constant (removes LEFT / twist side as burn advances)
-    const clipPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 999);
-    const clippingPlanes = [clipPlane];
-
-    let model: THREE.Group | null = null;
-    let modelMinX = 0;
-    let modelMaxX = 0;
-
-    const loader = new GLTFLoader();
-    loader.load(
-      "/joint.glb",
-      (gltf) => {
-        model = gltf.scene;
-
-        // Dig into the model structure
-        const pre = new THREE.Box3().setFromObject(model);
-        const preSize = pre.getSize(new THREE.Vector3());
-        console.log("[joint] native bbox size:", preSize.x.toFixed(3), preSize.y.toFixed(3), preSize.z.toFixed(3));
-
-        const meshes: Array<{ name: string; size: THREE.Vector3; matName: string }> = [];
-        model.traverse((obj) => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const m = obj as THREE.Mesh;
-            const b = new THREE.Box3().setFromObject(m);
-            const s = b.getSize(new THREE.Vector3());
-            const mat = Array.isArray(m.material) ? m.material[0] : m.material;
-            meshes.push({ name: m.name, size: s, matName: (mat as THREE.Material)?.name || "?" });
-          }
-        });
-        console.log("[joint] meshes:", meshes.map(m => `${m.name}(${m.matName}) ${m.size.x.toFixed(2)}x${m.size.y.toFixed(2)}x${m.size.z.toFixed(2)}`).join(" | "));
-
-        // Long axis
-        const dims: Array<"x" | "y" | "z"> = ["x", "y", "z"];
-        const longAxis = dims[
-          [preSize.x, preSize.y, preSize.z].indexOf(
-            Math.max(preSize.x, preSize.y, preSize.z)
-          )
-        ];
-        console.log("[joint] long axis:", longAxis);
-
-        // Rotate so long axis is X (horizontal)
-        if (longAxis === "y") {
-          model.rotation.z = -Math.PI / 2;
-        } else if (longAxis === "z") {
-          model.rotation.y = Math.PI / 2;
-        }
-        model.updateMatrixWorld(true);
-
-        // Scale to span ~5.5 units along X
-        const bbox = new THREE.Box3().setFromObject(model);
-        const size = bbox.getSize(new THREE.Vector3());
-        console.log("[joint] post-rotate size:", size.x.toFixed(3), size.y.toFixed(3), size.z.toFixed(3));
-        model.scale.setScalar(5.5 / size.x);
-        model.updateMatrixWorld(true);
-
-        // Center
-        const bbox2 = new THREE.Box3().setFromObject(model);
-        model.position.sub(bbox2.getCenter(new THREE.Vector3()));
-        model.updateMatrixWorld(true);
-
-        // Determine which end is the twist/lit end (narrower cross-section near extreme)
-        const bb = new THREE.Box3().setFromObject(model);
-        const sampleRadiusAtX = (x: number, band: number) => {
-          let maxR = 0;
-          model!.traverse((obj) => {
-            if ((obj as THREE.Mesh).isMesh) {
-              const mesh = obj as THREE.Mesh;
-              const geom = mesh.geometry as THREE.BufferGeometry;
-              const pos = geom.attributes.position;
-              if (!pos) return;
-              const mat = mesh.matrixWorld;
-              const v = new THREE.Vector3();
-              for (let i = 0; i < pos.count; i++) {
-                v.fromBufferAttribute(pos, i).applyMatrix4(mat);
-                if (Math.abs(v.x - x) < band) {
-                  const r = Math.sqrt(v.y * v.y + v.z * v.z);
-                  if (r > maxR) maxR = r;
-                }
-              }
-            }
-          });
-          return maxR;
-        };
-
-        // Sample at multiple depths to reliably detect the tapering (twist) end
-        const leftClose = sampleRadiusAtX(bb.min.x + 0.08, 0.06);
-        const leftInner = sampleRadiusAtX(bb.min.x + 0.4, 0.1);
-        const rightClose = sampleRadiusAtX(bb.max.x - 0.08, 0.06);
-        const rightInner = sampleRadiusAtX(bb.max.x - 0.4, 0.1);
-        console.log("[joint] radii -X close/inner:", leftClose.toFixed(3), leftInner.toFixed(3),
-          "+X close/inner:", rightClose.toFixed(3), rightInner.toFixed(3));
-
-        // Twist end has rapid taper: close-to-edge radius much smaller than a bit inside.
-        // Filter end is ~cylindrical: close and inner radii similar.
-        const leftTaperRatio = leftInner > 0 ? leftClose / leftInner : 1;
-        const rightTaperRatio = rightInner > 0 ? rightClose / rightInner : 1;
-        console.log("[joint] taper ratios -X:", leftTaperRatio.toFixed(3),
-          "+X:", rightTaperRatio.toFixed(3));
-
-        // Lower taper ratio = more tapered = twist/lit end. Put it on -X (LEFT for viewer).
-        if (rightTaperRatio < leftTaperRatio) {
-          model.rotation.y += Math.PI;
-          model.updateMatrixWorld(true);
-          const bbFlip = new THREE.Box3().setFromObject(model);
-          model.position.sub(bbFlip.getCenter(new THREE.Vector3()));
-          model.updateMatrixWorld(true);
-          console.log("[joint] flipped so twist/lit end is on -X (left)");
-        } else {
-          console.log("[joint] no flip needed — twist already on -X");
-        }
-
-        // Final bbox for burn
-        const final = new THREE.Box3().setFromObject(model);
-        modelMinX = final.min.x;
-        modelMaxX = final.max.x;
-        console.log("[joint] final X range:", modelMinX.toFixed(3), "→", modelMaxX.toFixed(3));
-
-        // Apply clipping to all materials
-        model.traverse((obj) => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const mesh = obj as THREE.Mesh;
-            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            mats.forEach((m) => {
-              if (m) {
-                (m as THREE.Material).clippingPlanes = clippingPlanes;
-                (m as THREE.Material).clipShadows = true;
-              }
-            });
-          }
-        });
-
-        scene.add(model);
-        tipGroup.visible = true;
-      },
-      undefined,
-      (err) => {
-        console.error("Failed to load joint.glb:", err);
-      }
-    );
-
-    // ===== ANIMATION =====
-    let animLength = targetLengthRef.current;
+    // ====== ANIMATION LOOP ======
+    // displayLength is eased toward the effective length target, which depends on phase.
+    let displayLength = lengthTargetRef.current;
     let rafId = 0;
 
     const update = () => {
       const now = performance.now();
-      const diff = targetLengthRef.current - animLength;
-      animLength += Math.abs(diff) > SETTLED ? diff * EASE : diff;
+      const currentPhase = phaseRef.current;
 
-      if (model) {
-        const burnFrac = Math.max(animLength, MIN_BURN);
-        const modelLen = modelMaxX - modelMinX;
-        // Twist/lit end is on -X. Burn consumes -X side as length decreases.
-        // burnFrac=1 → burnX = modelMinX (no clipping). burnFrac=0.2 → burnX near modelMaxX.
-        const burnX = modelMaxX - modelLen * burnFrac;
-        clipPlane.constant = -burnX; // plane eq: x + constant < 0 → x < burnX clipped
+      // Effective length target — phase-dependent
+      let targetLen = lengthTargetRef.current;
+      if (currentPhase === "rolling") {
+        const p = Math.max(0, Math.min(1, (now - rollingStartedAtRef.current) / ROLL_DURATION));
+        const easedP = smoothstep(0, 1, p);
+        targetLen = lerp(FILTER_LINE, 1.0, easedP);
+      } else if (currentPhase === "unlit") {
+        targetLen = 1.0;
+      }
 
-        // Burn radius at the burn plane (narrower near twist tip)
-        const tBurn = 1 - (burnX - modelMinX) / modelLen; // 0 at filter, 1 at twist
-        const burnR = 0.22 - 0.12 * tBurn; // fuller when burning wide body, thinner at twist
+      const diff = targetLen - displayLength;
+      displayLength += Math.abs(diff) > SETTLED ? diff * EASE : diff;
 
-        // Position the ember assembly at the burn plane
-        tipGroup.position.set(burnX, 0, 0);
+      // Igniting micro-phase (client-only)
+      let ignitingP = 0;
+      const inIgniting =
+        ignitingStartRef.current > 0 && now - ignitingStartRef.current < IGNITE_DURATION;
+      if (inIgniting) {
+        ignitingP = (now - ignitingStartRef.current) / IGNITE_DURATION;
+      }
 
-        // Ember plug — thin along X, round in YZ. Sits at burn tip.
-        ember.position.set(-0.01, 0, 0);
-        ember.scale.set(0.035, burnR * 1.05, burnR * 1.05);
+      // Compute burn X from visual length
+      const burnX = PAPER_MIN_X + (1 - displayLength) * PAPER_LEN;
+      clipPlane.constant = -burnX;
 
-        // Ash plug slightly inset to -X (the consumed side)
-        ash.position.set(-0.03, 0, 0);
-        ash.scale.set(0.03, burnR * 0.85, burnR * 0.85);
+      // Radius at the burn
+      const burnR = paperRadiusAt(burnX);
 
-        const flaring = now < flareEndRef.current;
-        const pulse = 0.75 + Math.sin(now * 0.007) * 0.25;
+      // Position tip/ember assembly at burn plane
+      tipGroup.position.set(burnX, 0, 0);
 
-        // Hot core slightly in front of ember (more visible)
-        core.position.set(0.002, 0, 0);
-        const coreR = burnR * (flaring ? 0.7 : 0.45) * pulse;
-        core.scale.set(0.025, coreR, coreR);
-        coreMat.opacity = flaring ? 0.85 : 0.42 * pulse;
-        (coreMat.color as THREE.Color).copy(flaring ? EMBER_HOT : EMBER_COLOR).lerp(EMBER_HOT, flaring ? 1 : 0.4);
+      // Herb-cap disc covers the cut face
+      herbCap.position.set(0.002, 0, 0);
+      herbCap.scale.set(1, burnR * 0.94, burnR * 0.94);
 
-        emberMat.emissive.copy(EMBER_COLOR).lerp(EMBER_HOT, flaring ? 0.8 : 0.3);
-        emberMat.emissiveIntensity = (flaring ? 3.6 : 2.0) * (0.92 + pulse * 0.08);
+      // Ash ellipsoid — slightly wider than paper so it rims the edge
+      ash.position.set(-0.01, 0, 0);
+      ash.scale.set(0.045, burnR * 1.02, burnR * 1.02);
 
-        glow.position.set(-0.02, 0, 0);
-        const glowS = burnR * (flaring ? 5.0 : 3.0);
-        glow.scale.set(glowS, glowS, 1);
-        glowMat.opacity = flaring ? 0.55 : 0.32 + Math.sin(now * 0.005) * 0.04;
+      // Ember ellipsoid — slightly wider still, emissive rim
+      ember.position.set(-0.015, 0, 0);
+      ember.scale.set(0.055, burnR * 1.09, burnR * 1.09);
 
-        emberLight.position.set(burnX - 0.1, 0.05, 0.15);
-        emberLight.intensity = flaring ? 2.2 : 0.95 * (0.9 + pulse * 0.1);
-        emberLight.color.copy(flaring ? EMBER_HOT : EMBER_COLOR);
+      // Pulse & flare
+      const flaring = now < flareEndRef.current;
+      const pulse = 0.82 + Math.sin(now * 0.006) * 0.18;
 
-        // Subtle sway
-        const sway = Math.sin(now * 0.0007) * 0.015;
-        model.rotation.y = sway;
+      // ===== PHASE BRANCH =====
+      // Defaults
+      let emberTargetOpacity = 0;
+      let emberColor = EMBER_WARM;
+      let emberIntensity = 0;
+      let glowOpacity = 0;
+      let coreOpacity = 0;
+      let lightIntensity = 0;
+      let emitSmoke = false;
+      let smokeRate = 0;
+      let smokeGray = 1;
+      let twistVisible = false;
+      let twistScale = 1;
+      let herbCapOpacity = 0;
 
-        // Smoke spawns at burn, rises straight up
-        if (animLength > MIN_BURN + 0.001) {
-          if (Math.random() < (flaring ? 0.32 : 0.14)) {
-            spawnSmoke(new THREE.Vector3(burnX, 0, 0), false);
-          }
-          while (burstQueueRef.current > 0) {
-            spawnSmoke(new THREE.Vector3(burnX, 0, 0), true);
-            burstQueueRef.current--;
-          }
+      if (currentPhase === "unlit") {
+        twistVisible = true;
+        twistScale = 1;
+        emberTargetOpacity = 0;
+        glowOpacity = 0;
+        coreOpacity = 0;
+        lightIntensity = 0;
+        herbCapOpacity = 0; // no cut visible
+      } else if (currentPhase === "rolling") {
+        const p = Math.max(0, Math.min(1, (now - rollingStartedAtRef.current) / ROLL_DURATION));
+        const ep = smoothstep(0, 1, p);
+        // Ember fades out during first ~30%
+        const emberFade = 1 - smoothstep(0, 0.3, p);
+        emberTargetOpacity = emberFade;
+        emberColor = EMBER_WARM;
+        emberIntensity = 1.8 * emberFade;
+        glowOpacity = 0.3 * emberFade;
+        coreOpacity = 0.5 * emberFade;
+        lightIntensity = 0.7 * emberFade;
+        // Twist grows in the second half
+        twistVisible = ep > 0.4;
+        twistScale = smoothstep(0.4, 0.95, p);
+        herbCapOpacity = emberFade;
+        // Spin around long axis (X)
+        jointGroup.rotation.x = p * Math.PI * 4;
+        emitSmoke = false;
+      } else if (currentPhase === "lit" || currentPhase === "roach") {
+        twistVisible = false;
+        herbCapOpacity = 1;
+
+        if (inIgniting) {
+          // Client-only transition: twist shrinks, ember fades in, flame flickers
+          twistVisible = true;
+          twistScale = 1 - ignitingP;
+          emberTargetOpacity = ignitingP;
+          emberColor = EMBER_HOT;
+          emberIntensity = 1.0 + ignitingP * 2.2;
+          glowOpacity = 0.15 + ignitingP * 0.35;
+          coreOpacity = 0.3 + ignitingP * 0.5;
+          lightIntensity = ignitingP * 1.4;
+          herbCapOpacity = ignitingP;
+          // Flame sprite shown briefly
+          flame.visible = ignitingP < 0.7;
+          flame.position.set(-0.08, 0.02, 0);
+          flame.scale.set(0.35 * (1 - ignitingP * 0.3), 0.55 * (1 - ignitingP * 0.3), 1);
+          flameMat.opacity = (1 - ignitingP) * 0.85;
+          emitSmoke = true;
+          smokeRate = 0.08;
+          smokeGray = 1;
+        } else if (currentPhase === "lit") {
+          flame.visible = false;
+          emberTargetOpacity = 1;
+          emberColor = flaring ? EMBER_HOT : EMBER_WARM;
+          emberIntensity = (flaring ? 3.4 : 2.0) * (0.92 + pulse * 0.08);
+          glowOpacity = flaring ? 0.55 : 0.32 + Math.sin(now * 0.005) * 0.04;
+          coreOpacity = (flaring ? 0.85 : 0.5) * pulse;
+          lightIntensity = (flaring ? 2.0 : 0.95) * (0.9 + pulse * 0.1);
+          emitSmoke = true;
+          smokeRate = flaring ? 0.32 : 0.14;
+          smokeGray = 1;
+        } else {
+          // roach — cooler, dimmer, grayer smoke
+          flame.visible = false;
+          emberTargetOpacity = 1;
+          emberColor = EMBER_COOL;
+          emberIntensity = 1.1 * (0.92 + pulse * 0.08);
+          glowOpacity = 0.2 + Math.sin(now * 0.004) * 0.03;
+          coreOpacity = 0.3 * pulse;
+          lightIntensity = 0.4 * (0.9 + pulse * 0.1);
+          emitSmoke = true;
+          smokeRate = 0.04;
+          smokeGray = 0.35;
         }
       }
 
+      // Apply ember state
+      emberMat.emissive.copy(emberColor);
+      emberMat.color.copy(emberColor);
+      emberMat.emissiveIntensity = emberIntensity;
+      emberMat.opacity = emberTargetOpacity;
+      ashMat.opacity = emberTargetOpacity;
+      ashMat.transparent = emberTargetOpacity < 1;
+      herbCapMat.opacity = herbCapOpacity;
+      herbCapMat.transparent = herbCapOpacity < 1;
+
+      // Ember light follows burn position (world coords — ember moves with group if jointGroup rotates)
+      const emberWorld = new THREE.Vector3(burnX - 0.12, 0.05, 0.15);
+      jointGroup.localToWorld(emberWorld.set(burnX - 0.12, 0.05, 0.15));
+      emberLight.position.copy(emberWorld);
+      emberLight.intensity = lightIntensity;
+      emberLight.color.copy(emberColor);
+
+      // Core sprite
+      const coreS = burnR * (currentPhase === "lit" && flaring ? 2.6 : 1.8) * pulse;
+      core.scale.set(coreS, coreS, 1);
+      coreMat.opacity = coreOpacity;
+      core.position.set(-0.02, 0, 0);
+
+      // Glow sprite
+      const glowS = burnR * (currentPhase === "lit" && flaring ? 4.8 : 3.0);
+      glow.scale.set(glowS, glowS, 1);
+      glowMat.opacity = glowOpacity;
+      glow.position.set(-0.03, 0, 0);
+
+      // Twist visibility + scale
+      twist.visible = twistVisible;
+      if (twistVisible) {
+        twist.scale.set(twistScale, twistScale, twistScale);
+      }
+
+      // Reset joint rotation if not rolling (in case a stale roll left it offset)
+      if (currentPhase !== "rolling") {
+        jointGroup.rotation.x = 0;
+        // Subtle sway
+        jointGroup.rotation.y = Math.sin(now * 0.0006) * 0.025;
+        jointGroup.rotation.z = Math.sin(now * 0.0004) * 0.012;
+      }
+
+      // Smoke spawning (in world coords so it doesn't rotate with roll — but roll phase skips spawning)
+      if (emitSmoke && !inIgniting && Math.random() < smokeRate) {
+        const wpos = new THREE.Vector3(burnX, 0, 0);
+        jointGroup.localToWorld(wpos);
+        spawnSmoke(wpos, smokeGray, false);
+      } else if (inIgniting && Math.random() < smokeRate) {
+        const wpos = new THREE.Vector3(burnX, 0, 0);
+        jointGroup.localToWorld(wpos);
+        spawnSmoke(wpos, smokeGray, false);
+      }
+      if (flaring && currentPhase === "lit" && Math.random() < 0.5) {
+        const wpos = new THREE.Vector3(burnX, 0, 0);
+        jointGroup.localToWorld(wpos);
+        spawnSmoke(wpos, 1, true);
+      }
+
+      // Update smoke particles
       for (let i = 0; i < SMOKE_MAX; i++) {
-        if (lifetimes[i] <= 0) { alphas[i] = 0; continue; }
+        if (lifetimes[i] <= 0) {
+          alphas[i] = 0;
+          continue;
+        }
         const age = now - starts[i];
         if (age > lifetimes[i]) {
           lifetimes[i] = 0;
@@ -430,18 +716,19 @@ export default function WebGLJoint({
           continue;
         }
         const t = age / lifetimes[i];
-        positions[i * 3]     += velocities[i * 3];
+        positions[i * 3] += velocities[i * 3];
         positions[i * 3 + 1] += velocities[i * 3 + 1];
         positions[i * 3 + 2] += velocities[i * 3 + 2];
         velocities[i * 3 + 1] *= 0.996;
-        velocities[i * 3]     += (Math.random() - 0.5) * 0.0006;
+        velocities[i * 3] += (Math.random() - 0.5) * 0.0006;
         velocities[i * 3 + 2] += (Math.random() - 0.5) * 0.0006;
         sizes[i] += 0.28;
-        alphas[i] = (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8) * 0.4;
+        alphas[i] = (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8) * 0.42;
       }
       smokeGeom.attributes.position.needsUpdate = true;
       smokeGeom.attributes.alpha.needsUpdate = true;
       smokeGeom.attributes.size.needsUpdate = true;
+      smokeGeom.attributes.gray.needsUpdate = true;
 
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(update);
@@ -461,26 +748,29 @@ export default function WebGLJoint({
       cancelAnimationFrame(rafId);
       ro.disconnect();
       renderer.dispose();
-      emberGeom.dispose();
-      emberMat.dispose();
+      paperGeom.dispose();
+      paperMat.dispose();
+      filterGeom.dispose();
+      filterMat.dispose();
+      seamGeom.dispose();
+      seamMat.dispose();
+      twistGeom.dispose();
+      twistMat.dispose();
+      herbCapGeom.dispose();
+      herbCapMat.dispose();
       ashGeom.dispose();
       ashMat.dispose();
-      coreGeom.dispose();
+      emberGeom.dispose();
+      emberMat.dispose();
       coreMat.dispose();
+      glowMat.dispose();
+      flameMat.dispose();
       smokeGeom.dispose();
       smokeMat.dispose();
-      glowMat.dispose();
+      paperTex.dispose();
+      filterTex.dispose();
       smokeTex.dispose();
-      if (model) {
-        model.traverse((obj) => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const mesh = obj as THREE.Mesh;
-            mesh.geometry.dispose();
-            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            mats.forEach((m) => m && (m as THREE.Material).dispose());
-          }
-        });
-      }
+      flameTex.dispose();
       if (renderer.domElement.parentNode === mount) {
         mount.removeChild(renderer.domElement);
       }

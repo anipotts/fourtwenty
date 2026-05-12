@@ -5,8 +5,8 @@ export const runtime = "edge";
 
 export async function POST() {
   try {
-    const state = await hitJoint();
-    return NextResponse.json(state);
+    const result = await hitJoint();
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Hit error:", error);
     return NextResponse.json(
